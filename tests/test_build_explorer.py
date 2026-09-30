@@ -154,6 +154,26 @@ class ExplorerBuildTests(unittest.TestCase):
         second = builder.build(self.manifest, self.output, force=True)
         self.assertNotEqual(first["fingerprint"], second["fingerprint"])
 
+    def test_relative_local_assets_are_embedded(self):
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
+        (self.folder / "pages" / "img").mkdir(parents=True)
+        (self.folder / "pages" / "img" / "dot.png").write_bytes(png)
+        (self.folder / "pages" / "a.html").write_text('<!doctype html><html><head><style>.x{background:url("img/dot.png")}</style></head><body><img src="img/dot.png" alt=""></body></html>', encoding="utf-8")
+        self.data["candidates"][0]["source"] = "pages/a.html"
+        self.save()
+        builder.build(self.manifest, self.output)
+        page = self.output.read_text(encoding="utf-8")
+        self.assertNotIn("img/dot.png", page)
+        self.assertIn("data:image/png;base64,", page)
+
+    def test_local_assets_outside_the_manifest_folder_stay_rejected(self):
+        outside = Path(self.tmp.name).parent / f"{Path(self.tmp.name).name}-outside.png"
+        outside.write_bytes(b"\x89PNG\r\n\x1a\n")
+        self.addCleanup(outside.unlink)
+        self.source.write_text(f'<!doctype html><html><head></head><body><img src="../{outside.name}" alt=""><img src="https://example.com/a.png" alt=""></body></html>', encoding="utf-8")
+        with self.assertRaises(ValueError):
+            builder.build(self.manifest, self.output)
+
     def test_live_candidates_accept_only_local_dev_servers(self):
         self.data["candidates"].append({"id": "live", "name": "现状", "concept": "当前版本", "typography": "系统字体", "palette": ["#fff"], "traits": ["现有页面"], "kind": "url", "url": "http://localhost:5173/orders", "baseline": True})
         self.save()

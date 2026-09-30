@@ -145,8 +145,44 @@ def preview_csp(interactive: bool) -> str:
     return PREVIEW_CSP.replace("script-src 'none'", "script-src 'unsafe-inline'") if interactive else PREVIEW_CSP
 
 
-def prepare_html(path: Path, interactive: bool = False) -> str:
+EMBEDDABLE = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+    ".gif": "image/gif", ".avif": "image/avif", ".svg": "image/svg+xml",
+    ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf",
+    ".mp4": "video/mp4", ".webm": "video/webm",
+}
+ATTR_REF = re.compile(r"""(?P<lead>\b(?:src|poster|href|xlink:href)\s*=\s*)(?P<q>["'])(?P<ref>[^"'#][^"']*)(?P=q)""")
+CSS_REF = re.compile(r"""url\(\s*(?P<q>["']?)(?P<ref>[^"')\s][^"')]*)(?P=q)\s*\)""")
+
+
+def embed_local_files(content: str, base: Path, root: Path, used: set[Path]) -> str:
+    """Inline images, fonts and videos referenced relative to the candidate, as long as they stay inside the manifest folder."""
+
+    def data_url(ref: str) -> str | None:
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//", ref):
+            return None
+        target = (base / ref.split("?")[0].split("#")[0]).resolve()
+        mime = EMBEDDABLE.get(target.suffix.lower())
+        if not mime or not target.is_file() or not target.is_relative_to(root):
+            return None
+        used.add(target)
+        return f"data:{mime};base64," + base64.b64encode(target.read_bytes()).decode("ascii")
+
+    def attr(match):
+        url = data_url(match["ref"])
+        return match.group(0) if url is None else f'{match["lead"]}{match["q"]}{url}{match["q"]}'
+
+    def css(match):
+        url = data_url(match["ref"])
+        return match.group(0) if url is None else f'url("{url}")'
+
+    return CSS_REF.sub(css, ATTR_REF.sub(attr, content))
+
+
+def prepare_html(path: Path, interactive: bool = False, root: Path | None = None, used: set[Path] | None = None) -> str:
     content = path.read_text(encoding="utf-8")
+    if root is not None:
+        content = embed_local_files(content, path.parent, root, used if used is not None else set())
     parser = AssetCheck()
     parser.feed(content)
     for style in parser.styles:
@@ -226,7 +262,7 @@ def load_manifest(path: Path) -> tuple[dict, set[Path]]:
             "id": identifier,
             **{name: text_field(candidate, name) for name in ("name", "concept", "typography")},
             "palette": colors, "traits": text_list(candidate, "traits"), "kind": kind,
-            "content": url if kind == "url" else prepare_html(source, interactive) if kind == "html" else prepare_image(source),
+            "content": url if kind == "url" else prepare_html(source, interactive, path.parent, inputs) if kind == "html" else prepare_image(source),
             "sourceLabel": url if kind == "url" else source.name,
             "baseline": baseline,
             "interactive": interactive,
