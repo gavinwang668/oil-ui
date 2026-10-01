@@ -6,7 +6,7 @@
   <a href="https://ui.oiloil.org"><img src="./assets/readme/showcase.webp" width="100%" alt="先看效果：画廊里的部分作品，包括学英语 App、音乐年度报告、硬件官网、组件库官网、项目管理工具、打车 App、语音助手、结账流程和胶片相机"></a>
 </p>
 
-<p align="center"><sub>同一套方法交给 GPT 和 Claude 的几个模型，各自做出来的产品界面。每件作品都能在 <a href="https://ui.oiloil.org">ui.oiloil.org</a> 打开实际页面，看到它用的提示词。产品和数据都是虚构的。</sub></p>
+想看更多设计效果，可以去 [ui.oiloil.org](https://ui.oiloil.org)。
 
 ## 方法
 
