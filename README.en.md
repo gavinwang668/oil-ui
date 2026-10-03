@@ -86,7 +86,8 @@ Compare designs side by side as HTML files, images, or running development pages
 | Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
 | Interactions, states, layout, and responsive behavior | | ✓ |
 | SVG and shader effects: light trails, dot patterns, and flowing gradients | | ✓ |
-| Existing project redesigns: audit the UI, capture baselines, and choose a workflow by scope | | ✓ |
+| In existing projects, first tell apart a UI refresh, a flow fix, and a new feature | ✓ | ✓ |
+| Existing project methods: check whether the current design system deserves to be the standard, offer options by how far they depart from it, walk the real flow to find root causes, and propose options that solve the task in genuinely different ways | | ✓ |
 
 Oil UI Pro costs ¥69 (CNY): a one-time purchase, lifetime updates. Purchase it at [ui.oiloil.org/pro](https://ui.oiloil.org/pro/).
 

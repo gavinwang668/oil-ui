@@ -215,6 +215,11 @@ def product_name(name: str) -> str:
     return name
 
 
+def zh_label(label: str) -> str:
+    # 中文句子里，以汉字结尾的名称后面不加空格。
+    return label if re.search(r"[\u4e00-\u9fff]$", label) else f"{label} "
+
+
 def notice(name: str, current: str, latest: str, detail: str, reason: str) -> str:
     command = update_command(name)
     label = product_name(name)
@@ -227,7 +232,7 @@ def notice(name: str, current: str, latest: str, detail: str, reason: str) -> st
         if reason == "dependencies":
             return intro + f"Automatic updates need Node.js 18 or later. Install it, then run {command}."
         return intro + f"To update, run {command}."
-    intro = f"{label} 有新版本 {latest}（当前 {current}）{detail}。"
+    intro = f"{zh_label(label)}有新版本 {latest}（当前 {current}）{detail}。"
     if reason == "unauthorized":
         return intro + f"授权已失效或尚未授权。运行 npx {CLI} login 重新授权，再运行 {command}。"
     if reason == "inactive":
@@ -288,7 +293,7 @@ def main() -> int:
             if english():
                 print(f"{label} updated automatically to {latest} (previous: {current}){detail}. Read SKILL.md again before continuing.")
             else:
-                print(f"{label} 已自动更新到 {latest}（原来是 {current}）{detail}。请重新读取 SKILL.md 再继续。")
+                print(f"{zh_label(label)}已自动更新到 {latest}（原来是 {current}）{detail}。请重新读取 SKILL.md 再继续。")
             return 0
         if result.attempted:
             state.update(auto_failed_version=latest, auto_failed_at=now,
