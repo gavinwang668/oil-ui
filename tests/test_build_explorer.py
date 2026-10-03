@@ -205,6 +205,24 @@ class ExplorerBuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             builder.build(self.manifest, self.output, force=True)
 
+    def test_local_stylesheets_and_scripts_are_inlined(self):
+        (self.folder / "vendor").mkdir()
+        (self.folder / "vendor" / "lib.js").write_text("window.lib='</script>'", encoding="utf-8")
+        (self.folder / "app.css").write_text("body{color:#123}", encoding="utf-8")
+        self.source.write_text('<!doctype html><html><head><link rel="stylesheet" href="app.css">'
+                               '<script defer src="vendor/lib.js"></script></head><body><p>内容</p></body></html>', encoding="utf-8")
+        static = builder.prepare_html(self.source, root=self.folder)
+        self.assertIn("<style>body{color:#123}</style>", static)
+        self.assertNotIn("lib.js", static)
+        self.assertNotIn("window.lib", static)
+        live = builder.prepare_html(self.source, interactive=True, root=self.folder)
+        self.assertIn("'unsafe-eval'", live)
+        self.assertLess(live.index("<p>内容</p>"), live.index("window.lib"))
+        self.assertIn("<\\/script>", live)
+        self.data["candidates"][0]["interactive"] = True
+        self.save()
+        builder.build(self.manifest, self.output)
+
     def test_only_one_baseline(self):
         second = dict(self.data["candidates"][0], id="b", baseline=True)
         self.data["candidates"][0]["baseline"] = True
@@ -234,7 +252,7 @@ class ExplorerBuildTests(unittest.TestCase):
             "展示色板": "c.palette",
         }
         missing = [name for name, hook in hooks.items() if hook not in page]
-        self.assertEqual(missing, [], "模板缺少 style-explorer.md 承诺的功能")
+        self.assertEqual(missing, [], "模板缺少对比页承诺的功能，见 .github/EXPLORER.md")
 
     def test_copied_skill_works_from_another_directory(self):
         copy = self.folder / "relocated"

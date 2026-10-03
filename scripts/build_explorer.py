@@ -142,7 +142,8 @@ STORAGE_SHIM = (
 
 def preview_csp(interactive: bool) -> str:
     # Interactive prototypes may run their own inline scripts, still with no network or external files.
-    return PREVIEW_CSP.replace("script-src 'none'", "script-src 'unsafe-inline'") if interactive else PREVIEW_CSP
+    # 'unsafe-eval' lets declarative libraries such as Alpine.js evaluate their attribute expressions.
+    return PREVIEW_CSP.replace("script-src 'none'", "script-src 'unsafe-inline' 'unsafe-eval'") if interactive else PREVIEW_CSP
 
 
 EMBEDDABLE = {
@@ -179,10 +180,63 @@ def embed_local_files(content: str, base: Path, root: Path, used: set[Path]) -> 
     return CSS_REF.sub(css, ATTR_REF.sub(attr, content))
 
 
+SCRIPT_SRC = re.compile(r"""<script\b(?P<attrs>[^>]*?)\bsrc\s*=\s*(?P<q>["'])(?P<ref>[^"']+)(?P=q)(?P<rest>[^>]*)>\s*</script>""", re.I)
+LINK_TAG = re.compile(r"<link\b[^>]*>", re.I)
+LINK_ATTR = re.compile(r"""\b(?P<name>rel|href)\s*=\s*(?P<q>["'])(?P<value>[^"']*)(?P=q)""", re.I)
+
+
+def local_file(ref: str, base: Path, root: Path) -> Path | None:
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//", ref):
+        return None
+    target = (base / ref.split("?")[0].split("#")[0]).resolve()
+    return target if target.is_file() and target.is_relative_to(root) else None
+
+
+def inline_local_code(content: str, base: Path, root: Path, used: set[Path], interactive: bool) -> str:
+    """Inline stylesheets and, for interactive candidates, scripts that live in the manifest folder."""
+
+    def link(match):
+        attrs = {m["name"].lower(): m["value"] for m in LINK_ATTR.finditer(match.group(0))}
+        target = local_file(attrs.get("href", ""), base, root) if "stylesheet" in attrs.get("rel", "").lower() else None
+        if target is None:
+            return match.group(0)
+        used.add(target)
+        css = embed_local_files(target.read_text(encoding="utf-8"), target.parent, root, used)
+        return "<style>" + css.replace("</style", "<\\/style") + "</style>"
+
+    deferred = []
+
+    def script(match):
+        target = local_file(match["ref"], base, root)
+        if target is None:
+            return match.group(0)
+        used.add(target)
+        if not interactive:
+            return ""
+        attrs = re.sub(r"\s+", " ", f'{match["attrs"]} {match["rest"]}').strip()
+        code = target.read_text(encoding="utf-8").replace("</script", "<\\/script")
+        is_module = re.search(r"""type\s*=\s*["']module["']""", attrs, re.I)
+        tag = ('<script type="module">' if is_module else "<script>") + code + "</script>"
+        # Inline scripts ignore defer, so deferred files move to the end of the body to keep their timing.
+        if re.search(r"\bdefer\b", attrs, re.I) and not is_module:
+            deferred.append(tag)
+            return ""
+        return tag
+
+    content = SCRIPT_SRC.sub(script, LINK_TAG.sub(link, content))
+    if deferred:
+        close = content.lower().rfind("</body>")
+        content = content + "".join(deferred) if close < 0 else content[:close] + "".join(deferred) + content[close:]
+    return content
+
+
 def prepare_html(path: Path, interactive: bool = False, root: Path | None = None, used: set[Path] | None = None) -> str:
     content = path.read_text(encoding="utf-8")
     if root is not None:
-        content = embed_local_files(content, path.parent, root, used if used is not None else set())
+        root = root.resolve()
+        used = used if used is not None else set()
+        content = inline_local_code(content, path.parent, root, used, interactive)
+        content = embed_local_files(content, path.parent, root, used)
     parser = AssetCheck()
     parser.feed(content)
     for style in parser.styles:
