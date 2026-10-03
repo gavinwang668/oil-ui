@@ -21,7 +21,7 @@ See more designs at [ui.oiloil.org](https://ui.oiloil.org).
 7. **You decide what looks right.** Compare previews on one page, choose a direction, and say exactly what you like and dislike.
 8. **Judge the actual screens.** Open the page at desktop and mobile sizes and check screenshots. An independent reviewer who has not seen the work in progress can review it. Finish by simplifying: give each page one focal point and remove unnecessary copy, repeated lines, and extra containers.
 
-Interactions, states, layout, existing project redesigns, and effects such as light trails and dot patterns are covered in [Oil UI Pro](https://ui.oiloil.org/pro/).
+Interactions, states, layout, existing project redesigns, and effects such as light trails and dot patterns are covered in [Oil UI Pro](https://ui.oiloil.org/en/pro/).
 
 ## Installation
 
@@ -39,7 +39,7 @@ npx skills add oil-oil/oil-ui
 
 The design workflow is ready to use after installation, with no extra configuration or other skills. Installing with the command requires Node.js 18 or later. If you already have Oil UI Pro, you don't need Oil UI (open source); installing both makes them compete for the same requests.
 
-Using this skill triggers a version check, usually once a day. Failed checks retry later when you use the skill again. The check only reads the public version list on ui.oiloil.org and does not upload project content. Offline checks cannot discover new versions, so they produce no reminder.
+Using this skill triggers a version check, at most once every 10 minutes. If the server takes longer than 2 seconds, the check is skipped so it never slows down your task. Failed checks retry later when you use the skill again. The check only reads the public version list on ui.oiloil.org and does not upload project content. Offline checks cannot discover new versions, so they produce no reminder.
 
 Automatic updates need Python 3 and Node.js 18 or later. When a new version is found, the skill tries to update itself. If dependencies are missing, the agent ends its reply with recovery steps and a command containing the current installation's absolute path: `npx github:oil-oil/oil-cli update oil-ui --path "<installation path>"`. Network errors stay silent and retry later. Set `OIL_NO_AUTO_UPDATE=1` for reminders without automatic updates, or `OIL_NO_UPDATE_CHECK=1` to disable checks entirely.
 
@@ -89,7 +89,7 @@ Compare designs side by side as HTML files, images, or running development pages
 | In existing projects, first tell apart a UI refresh, a flow fix, and a new feature | ✓ | ✓ |
 | Existing project methods: check whether the current design system deserves to be the standard, offer options by how far they depart from it, walk the real flow to find root causes, and propose options that solve the task in genuinely different ways | | ✓ |
 
-Oil UI Pro costs ¥69 (CNY): a one-time purchase, lifetime updates. Purchase it at [ui.oiloil.org/pro](https://ui.oiloil.org/pro/).
+Oil UI Pro costs $9.99: a one-time purchase with lifetime updates. Purchase it at [ui.oiloil.org/pro](https://ui.oiloil.org/en/pro/).
 
 ## Use with
 

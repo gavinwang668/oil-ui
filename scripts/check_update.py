@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """检查本 Skill 有没有新版本，有就自动更新。
 
-由使用 Skill 触发，通常每天检查一次，网络失败后一小时可重试。
+由使用 Skill 触发，最多每 10 分钟联网检查一次，网络失败后一小时可重试。
 只读取 ui.oiloil.org 公开的版本列表，不上传项目内容。
 发现新版本时用 npx github:oil-oil/oil-cli 原地更新本目录：
 成功打印一行“已自动更新”，不能自动更新时打印一行提示，条件不变时每天最多提示一次；
@@ -26,6 +26,10 @@ ROOT = Path(__file__).resolve().parent.parent
 API = os.environ.get("OIL_API", "https://ui.oiloil.org").rstrip("/")
 CLI = "github:oil-oil/oil-cli"
 DAY = 24 * 3600
+# 发版后用户下一次使用就能更新；版本列表有服务端缓存，频繁检查的成本很低
+CHECK_INTERVAL = 10 * 60
+# 联网检查不能拖慢任务：超时就跳过，下次再查
+FETCH_TIMEOUT = 2
 RETRY_AFTER_FAILURE = 3600
 UPDATE_TIMEOUT = 300
 
@@ -96,7 +100,7 @@ def parse(version: str) -> tuple[int, ...]:
 
 def fetch(name: str) -> dict | None:
     request = urllib.request.Request(f"{API}/api/store/versions", headers={"User-Agent": "oil-skill-update-check"})
-    with urllib.request.urlopen(request, timeout=3) as response:
+    with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT) as response:
         entry = json.load(response).get("skills", {}).get(name)
     if not isinstance(entry, dict) or not re.fullmatch(r"\d+\.\d+\.\d+", str(entry.get("latest", ""))):
         return None
@@ -257,7 +261,7 @@ def main() -> int:
     state = load(install_path)
     now = time.time()
 
-    if now - float(cache.get("checked_at", 0)) >= DAY:
+    if now - float(cache.get("checked_at", 0)) >= CHECK_INTERVAL:
         if now - float(cache.get("fetch_failed_at", 0)) < RETRY_AFTER_FAILURE:
             return 0
         try:

@@ -251,6 +251,17 @@ class CheckUpdateTest(unittest.TestCase):
                                      "notified_version": "99.0.0", "notified_at": 9999999999}), encoding="utf-8")
         self.assertIn("已自动更新", self.run_check())
 
+    def test_checks_versions_again_after_ten_minutes(self):
+        self.run_check(OIL_NO_AUTO_UPDATE="1")
+        self.run_check(OIL_NO_AUTO_UPDATE="1")
+        self.assertEqual(Versions.hits, 1)
+        cache = self.tmp / "state" / "oil" / "oil-ui-pro-update.json"
+        state = json.loads(cache.read_text(encoding="utf-8"))
+        state["checked_at"] -= 601
+        cache.write_text(json.dumps(state), encoding="utf-8")
+        self.run_check(OIL_NO_AUTO_UPDATE="1")
+        self.assertEqual(Versions.hits, 2)
+
     def test_offline_with_stale_cache_is_silent_and_fetch_retries_later(self):
         self.run_check(OIL_NO_AUTO_UPDATE="1")
         cache = self.tmp / "state" / "oil" / "oil-ui-pro-update.json"
