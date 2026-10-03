@@ -50,6 +50,38 @@ class ShootCLITests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertNotEqual(result.returncode, 0)
 
+    def test_unknown_option(self):
+        help_result = subprocess.run([NODE, str(SCRIPT), "--help"], cwd=ROOT,
+                                     capture_output=True, text=True, timeout=10)
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        options = [line.split()[0] for line in help_result.stdout.splitlines()
+                   if line.startswith("  --")]
+        for args in (("--xxx",), ("--xxx", "value")):
+            with self.subTest(args=args):
+                result = subprocess.run([NODE, str(SCRIPT), *args], cwd=ROOT,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stderr.splitlines(), [
+                    "shoot：不认识的选项 --xxx",
+                    "可用选项：" + " ".join(options),
+                ])
+                self.assertEqual(result.stdout, "")
+
+    def test_missing_option_value(self):
+        for option in ("--out", "--size", "--states", "--param", "--zoom", "--steps", "--hold", "--wait"):
+            for following in ((), ("--force",)):
+                with self.subTest(option=option, following=following):
+                    result = subprocess.run([NODE, str(SCRIPT), option, *following], cwd=ROOT,
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stderr, f"shoot：{option} 需要一个值\n")
+
+    def test_force_is_ignored(self):
+        result = subprocess.run([NODE, str(SCRIPT), "--force"], cwd=ROOT,
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr, "shoot：缺少页面地址或文件。\n")
+
 
 class ShootBrowserTests(unittest.TestCase):
     @classmethod
@@ -120,6 +152,13 @@ document.querySelector('#go').onclick = () => show(document.body.dataset.state =
         self.assertNotEqual((output / "a.png").read_bytes(), (output / "b.png").read_bytes())
         self.assertNotEqual((output / "a.png").read_bytes(), (output / "a-masked.png").read_bytes())
         self.assertEqual(list(self.profile_root.glob("oil-shoot-*")), [], "Temporary browser profiles leaked")
+
+    def test_force_overwrites_existing_output(self):
+        output = self.folder / "shots"
+        output.mkdir()
+        (output / "page.png").write_bytes(b"old screenshot")
+        self.shoot(output, "--force")
+        self.assert_artifacts(output, ("page.png", "report.json"))
 
     def test_record_steps(self):
         output = self.folder / "record's output"

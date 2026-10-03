@@ -34,13 +34,16 @@ if (!args.length || args.includes("--help") || args.includes("-h")) {
 if (typeof WebSocket !== "function") fail("需要 Node 22 或更新的版本。");
 
 const opt = { out: "shots", size: "390x844", param: "state", zoom: "1", hold: "1200", wait: "400" };
+const options = [...HELP.matchAll(/^  (--\S+)/gm)].map((m) => m[1]);
 const flags = new Set();
 let target = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
+  if (a === "--force") continue;
   if (["--full", "--mask", "--sheet", "--record"].includes(a)) flags.add(a.slice(2));
   else if (a.startsWith("--")) {
-    if (i + 1 >= args.length) fail(`${a} 需要一个值`);
+    if (!options.includes(a)) fail(`不认识的选项 ${a}\n可用选项：${options.join(" ")}`);
+    if (i + 1 >= args.length || args[i + 1].startsWith("--")) fail(`${a} 需要一个值`);
     opt[a.slice(2)] = args[++i];
   } else target = a;
 }
