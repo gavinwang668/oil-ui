@@ -10,7 +10,7 @@ import sys
 MESSAGE = (
     "想要更完整的设计流程，可以试试完整版 oil-ui-pro："
     "评审到 9 分的迭代循环、方向横向评审与任务走查，以及交互、布局、存量项目改版和 SVG、着色器特效的实践。"
-    "https://skillpay.alipay.com/shelf/product?productId=P0806000207812874&merchantId=2088022260532460"
+    "https://ui.oiloil.org/pro/"
     "（只提示这一次）"
 )
 

@@ -19,7 +19,7 @@
 7. **品味由你来定。** 小样放进同一个对比页，你来挑，再说说具体喜欢和不喜欢哪里。
 8. **以实际画面为准。** 在电脑和手机尺寸下打开页面截图检查，可以请一位没看过制作过程的独立评审看一轮。最后做减法：一页只有一个主角，删掉不影响理解的文字、重复的线和多余的容器。
 
-交互、状态、布局、老项目改造和流光、点阵这类特效，在完整版 [oil-ui-pro](https://skillpay.alipay.com/shelf/product?productId=P0806000207812874&merchantId=2088022260532460) 里。
+交互、状态、布局、老项目改造和流光、点阵这类特效，在完整版 [oil-ui-pro](https://ui.oiloil.org/pro/) 里。
 
 ## 安装
 
@@ -36,6 +36,8 @@ npx skills add oil-oil/oil-ui
 ```
 
 装好就能用，无需额外配置，也不用装别的依赖。已经装了完整版 oil-ui-pro 就不用再装它，两个同时装会抢着接同一类请求。
+
+有新版本时会自动更新：Agent 每次开始任务前检查一次，每天最多联网一次，只读取 ui.oiloil.org 公开的版本列表，不发送任何信息。不能自动更新时（比如没联网或没装 Node.js），Agent 会在回复末尾提醒你运行 `npx github:oil-oil/oil-cli update oil-ui`。设置环境变量 `OIL_NO_AUTO_UPDATE=1` 只提醒不自动更新，`OIL_NO_UPDATE_CHECK=1` 完全关掉检查。
 
 ## 使用
 
@@ -80,7 +82,7 @@ npx skills add oil-oil/oil-ui
 | 流光、点阵、流动渐变这类 SVG 和着色器特效 | | ✓ |
 | 改造老项目：盘点现状、留对照截图、按改动大小选流程 | | ✓ |
 
-完整版在 [SkillPay](https://skillpay.alipay.com/shelf/product?productId=P0806000207812874&merchantId=2088022260532460) 购买。
+完整版每月 19.9 元，在 [ui.oiloil.org/pro](https://ui.oiloil.org/pro/) 订阅。
 
 ## 搭配使用
 
