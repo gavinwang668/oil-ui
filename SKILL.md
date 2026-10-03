@@ -1,9 +1,13 @@
 ---
 name: oil-ui
 description: "设计、改进和评审网站、App、后台与组件的界面，完成设计方向探索、多风格同屏比较、视觉层级和基于实际画面的迭代；按请求交付对比页、设计说明、设计稿或可运行界面。当用户需要新界面设计、比较不同设计风格、视觉精修、截图还原或界面评审时使用。只负责设计判断，组件归属、数据流、状态正确性和测试等代码实现质量不在范围内。不用于纯业务逻辑、接口、构建部署、无界面行为变化的代码整理、单独绘制普通插画或操作现有网站。已安装 oil-ui-pro 时交给 oil-ui-pro。"
-allowed-tools: Bash(python3 *check_update.py*)
+allowed-tools:
+  - Bash(sh *check_update.sh*)
+  - Bash(python3 *check_update.py*)
+  - Bash(python *check_update.py*)
+  - Bash(py -3 *check_update.py*)
 metadata:
-  version: "0.11.1"
+  version: "0.12.0"
   compatibility: "核心为宿主中立的文本流程，不依赖其他 Skill 或指定模型。可选风格对比页生成器需要 Python 3.10+ 标准库，产物仅需现代浏览器；本机地址候选需要对应的本地开发服务器在运行。实际视觉验收需要看图能力；交互验收需要可操作环境；独立评审需要隔离上下文且能看图的执行者。"
 ---
 
@@ -17,9 +21,13 @@ metadata:
 
 ## 开始前
 
-版本检查：!`python3 "${CLAUDE_SKILL_DIR}/scripts/check_update.py" 2>/dev/null || true`
+版本检查：!`sh "${CLAUDE_SKILL_DIR}/scripts/check_update.sh" 2>/dev/null || true`
 
-支持加载时运行命令的宿主会自动做这次检查，把结果填在上面；上面仍是一条命令时，用 Python 3 运行一次 `scripts/check_update.py`。它每天最多联网检查一次新版本，有就自动更新。结果为空就直接开始；说已自动更新时，重新读取本文件再开始；是一行更新提示时，照常完成任务，把这行原样附在最终回复末尾。
+支持加载时运行命令的宿主会自动做这次检查，把结果填在上面；上面仍是一条命令时，运行本目录的 `scripts/check_update.sh`。它会先找 `python3`，再找 `python`，确认是 Python 3 后运行检查。没有 POSIX shell 的宿主，依次尝试 `python3`、`python`、`py -3`，确认是 Python 3 后运行本目录的 `scripts/check_update.py`。
+
+检查由使用本 Skill 触发，通常每天一次，网络失败后稍后重试，有新版本就尝试自动更新。结果为空就直接开始；说已自动更新时，重新读取本文件再开始；是一行更新提示时，照常完成任务，在最终回复末尾用当前对话的语言转述这行提示，命令、版本号和路径保持原样。
+
+缺少 Python 3 时检查不会运行：照常完成任务，在最终回复里提醒一次“自动更新需要 Python 3”。结果是 `OIL_UPDATE_CHECK_SKIPPED: missing_python` 时说明已经提醒过，不再提醒，也不转述这个标记。手动运行检查的宿主，同一次对话里只提醒一次。
 
 ## 选择范围
 

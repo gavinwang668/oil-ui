@@ -21,7 +21,7 @@ See more designs at [ui.oiloil.org](https://ui.oiloil.org).
 7. **You decide what looks right.** Compare previews on one page, choose a direction, and say exactly what you like and dislike.
 8. **Judge the actual screens.** Open the page at desktop and mobile sizes and check screenshots. An independent reviewer who has not seen the work in progress can review it. Finish by simplifying: give each page one focal point and remove unnecessary copy, repeated lines, and extra containers.
 
-Interactions, states, layout, existing project redesigns, and effects such as light trails and dot patterns are covered in [oil-ui-pro](https://ui.oiloil.org/pro/).
+Interactions, states, layout, existing project redesigns, and effects such as light trails and dot patterns are covered in [Oil UI Pro](https://ui.oiloil.org/pro/).
 
 ## Installation
 
@@ -37,9 +37,13 @@ Or install it from your terminal:
 npx skills add oil-oil/oil-ui
 ```
 
-No extra setup or dependencies needed. If you already have oil-ui-pro, you don't need this one; installing both makes them compete for the same requests.
+The design workflow is ready to use after installation, with no extra configuration or other skills. Installing with the command requires Node.js 18 or later. If you already have Oil UI Pro, you don't need Oil UI (open source); installing both makes them compete for the same requests.
 
-Updates are automatic. The agent checks before each task, going online at most once a day. It only reads the public version list on ui.oiloil.org and sends nothing about you. If it cannot update, for example because you are offline or Node.js is missing, it ends its reply with a reminder to run `npx github:oil-oil/oil-cli update oil-ui`. Set `OIL_NO_AUTO_UPDATE=1` for reminders without automatic updates, or `OIL_NO_UPDATE_CHECK=1` to disable checks entirely.
+Using this skill triggers a version check, usually once a day. Failed checks retry later when you use the skill again. The check only reads the public version list on ui.oiloil.org and does not upload project content. Offline checks cannot discover new versions, so they produce no reminder.
+
+Automatic updates need Python 3 and Node.js 18 or later. When a new version is found, the skill tries to update itself. If dependencies are missing, the agent ends its reply with recovery steps and a command containing the current installation's absolute path: `npx github:oil-oil/oil-cli update oil-ui --path "<installation path>"`. Network errors stay silent and retry later. Set `OIL_NO_AUTO_UPDATE=1` for reminders without automatic updates, or `OIL_NO_UPDATE_CHECK=1` to disable checks entirely.
+
+Python 3 can run as `python3` or `python`, or as `py -3` on Windows. If Python 3 is missing, the agent reminds you once and continues the design task.
 
 ## Usage
 
@@ -67,7 +71,7 @@ Compare designs side by side as HTML files, images, or running development pages
   <img src="./assets/readme/proof-van-gogh.webp" width="100%" alt="Full version style comparison page: three directions for a Van Gogh exhibition page, titled To Theo, Brushstrokes, and East Window">
 </p>
 
-| | oil-ui | oil-ui-pro |
+| | Oil UI (open source) | Oil UI Pro |
 | --- | :---: | :---: |
 | Set the tone, explore distinct directions, define layouts first, and check their differences | ✓ | ✓ |
 | Style comparison page | ✓ | ✓ |
@@ -76,7 +80,7 @@ Compare designs side by side as HTML files, images, or running development pages
 | Imagery, assets, and motion | ✓ | ✓ |
 | Screenshot recreation, icon library selection, and sample data | ✓ | ✓ |
 | Review polished interfaces against the project’s design guidelines | ✓ | ✓ |
-| Independent review | One round per stage | Revise and review until 9/10 |
+| Independent review | One round per stage | Aim for 9/10, with up to three rounds of review and revision |
 | Check for overlapping directions and have the reviewer complete real tasks | | ✓ |
 | Fix common first-draft issues, check AI design defaults, refine details, and simplify | | ✓ |
 | Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
@@ -84,7 +88,7 @@ Compare designs side by side as HTML files, images, or running development pages
 | SVG and shader effects: light trails, dot patterns, and flowing gradients | | ✓ |
 | Existing project redesigns: audit the UI, capture baselines, and choose a workflow by scope | | ✓ |
 
-The full version is a one-time ¥69 purchase with lifetime updates, available at [ui.oiloil.org/pro](https://ui.oiloil.org/pro/).
+Oil UI Pro costs ¥69 (CNY): a one-time purchase, lifetime updates. Purchase it at [ui.oiloil.org/pro](https://ui.oiloil.org/pro/).
 
 ## Use with
 
