@@ -85,6 +85,7 @@ Compare designs side by side as HTML files, images, or running development pages
 | Fix common first-draft issues, check AI design defaults, refine details, and simplify | | ✓ |
 | Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
 | Interactions, states, layout, and responsive behavior | | ✓ |
+| Polish a single component to the extreme: a visual anchor, one chosen sketch, every state, a tactile main interaction, and review rounds | | ✓ |
 | SVG and shader effects: light trails, dot patterns, and flowing gradients | | ✓ |
 | In existing projects, first tell apart a UI refresh, a flow fix, and a new feature | ✓ | ✓ |
 | Existing project methods: check whether the current design system deserves to be the standard, offer options by how far they depart from it, walk the real flow to find root causes, and propose options that solve the task in genuinely different ways | | ✓ |
