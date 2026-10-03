@@ -82,7 +82,7 @@ npx skills add oil-oil/oil-ui
 | 流光、点阵、流动渐变这类 SVG 和着色器特效 | | ✓ |
 | 改造老项目：盘点现状、留对照截图、按改动大小选流程 | | ✓ |
 
-完整版每月 19.9 元，在 [ui.oiloil.org/pro](https://ui.oiloil.org/pro/) 订阅。
+完整版 69 元买断、永久更新，在 [ui.oiloil.org/pro](https://ui.oiloil.org/pro/) 购买。
 
 ## 搭配使用
 
