@@ -1,8 +1,10 @@
 """Observable builder contracts. Run with Python's unittest discovery."""
 
 import base64
+from contextlib import redirect_stderr
 import importlib.util
 from html.parser import HTMLParser
+import io
 import json
 from pathlib import Path
 import shutil
@@ -187,6 +189,100 @@ class ExplorerBuildTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 builder.build(self.manifest, self.output, force=True)
 
+    def test_serve_accepts_command_and_optional_absolute_cwd_and_local_url(self):
+        for serve in (
+            {"command": "pnpm dev"},
+            {"command": "pnpm dev", "cwd": str(self.folder)},
+            {"command": "pnpm dev", "cwd": str(self.folder), "url": "http://localhost:3456"},
+            {"command": "pnpm dev", "url": "https://127.0.0.1:3456/"},
+            {"command": "pnpm dev", "url": "http://[::1]:3456/"},
+        ):
+            with self.subTest(serve=serve):
+                self.data["serve"] = serve
+                self.save()
+                builder.build(self.manifest, self.output, force=True)
+                page = self.output.read_text(encoding="utf-8")
+                payload = json.loads(page.split("const DATA = ", 1)[1].split(";\n", 1)[0])
+                self.assertEqual(payload["serve"], serve)
+
+    def test_serve_requires_a_nonempty_string_command(self):
+        for serve in ({}, {"command": ""}, {"command": "  "}, {"command": 123}, {"command": None}):
+            with self.subTest(serve=serve):
+                self.data["serve"] = serve
+                self.save()
+                with self.assertRaisesRegex(ValueError, "serve.command 必须是非空字符串"):
+                    builder.build(self.manifest, self.output)
+        for serve in (None, [], "pnpm dev"):
+            with self.subTest(serve=serve):
+                self.data["serve"] = serve
+                self.save()
+                with self.assertRaisesRegex(ValueError, "serve 必须是对象"):
+                    builder.build(self.manifest, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_serve_cwd_must_be_an_absolute_path(self):
+        for cwd in ("project", "./project", "~/project", "", None, 123):
+            with self.subTest(cwd=cwd):
+                self.data["serve"] = {"command": "pnpm dev", "cwd": cwd}
+                self.save()
+                with self.assertRaisesRegex(ValueError, "serve.cwd 必须是绝对路径"):
+                    builder.build(self.manifest, self.output)
+
+    def test_serve_url_must_be_local_http_or_https(self):
+        for url in ("https://example.com/", "file:///tmp/index.html", "ftp://localhost/", "http://user:pw@localhost:3456/", "http://localhost:bad/", "http://[::1", "", None, 123):
+            with self.subTest(url=url):
+                self.data["serve"] = {"command": "pnpm dev", "url": url}
+                self.save()
+                with self.assertRaisesRegex(ValueError, "serve.*url.*本机"):
+                    builder.build(self.manifest, self.output)
+
+    def test_serve_is_embedded_unchanged_without_script_escape(self):
+        serve = {"command": "  printf '</script><script>window.injected=true</script>'\u2028\u2029  ", "cwd": str(self.folder / 'a"$`\\b'), "url": "http://localhost:3456", "note": "保留额外元数据"}
+        self.data["serve"] = serve
+        self.save()
+        builder.build(self.manifest, self.output)
+        page = self.output.read_text(encoding="utf-8")
+        payload = json.loads(page.split("const DATA = ", 1)[1].split(";\n", 1)[0])
+        self.assertEqual(payload["serve"], serve)
+        self.assertNotIn(serve["command"], page)
+        self.assertIn('\\u003c/script>', page)
+        self.assertIn('\\u2028\\u2029', page)
+
+    def test_url_candidates_without_serve_warn_but_still_build(self):
+        self.data["candidates"][0].update(kind="url", url="http://localhost:3456/")
+        self.save()
+        messages = io.StringIO()
+        with redirect_stderr(messages):
+            builder.build(self.manifest, self.output)
+        self.assertTrue(self.output.is_file())
+        self.assertEqual(len(messages.getvalue().splitlines()), 1)
+        self.assertIn("建议在 manifest 顶层补上 serve", messages.getvalue())
+        self.data["serve"] = {"command": "pnpm dev"}
+        self.save()
+        messages = io.StringIO()
+        with redirect_stderr(messages):
+            builder.build(self.manifest, self.output, force=True)
+        self.assertEqual(messages.getvalue(), "")
+
+    def test_shell_connections_allow_only_this_rounds_candidate_origins(self):
+        self.data["serve"] = {"command": "pnpm dev", "url": "http://localhost:9999/"}
+        urls = ["http://localhost:3456/a?note=\"<script>", "http://localhost:3456/b", "https://127.0.0.1:4443/", "http://[::1]:5173/"]
+        self.data["candidates"] = [dict(self.data["candidates"][0], id=f"live{i}", kind="url", url=url) for i, url in enumerate(urls)]
+        self.save()
+        builder.build(self.manifest, self.output)
+        policies = []
+        class Policies(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if tag == "meta" and attrs.get("http-equiv") == "Content-Security-Policy":
+                    policies.append(attrs["content"])
+        Policies().feed(self.output.read_text(encoding="utf-8"))
+        self.assertEqual(policies, ["connect-src http://localhost:3456 http://localhost:5173 https://127.0.0.1:4443"])
+        self.data["candidates"] = [dict(self.data["candidates"][0], kind="html")]
+        self.save()
+        builder.build(self.manifest, self.output, force=True)
+        self.assertIn('content="connect-src \'none\'"', self.output.read_text(encoding="utf-8"))
+
     def test_interactive_html_runs_inline_scripts_only_when_asked(self):
         self.assertIn("script-src 'none'", builder.prepare_html(self.source))
         csp = builder.prepare_html(self.source, interactive=True)
@@ -244,6 +340,8 @@ class ExplorerBuildTests(unittest.TestCase):
             "备注": 'id="notes"',
             "选择即复制": 'navigator.clipboard',
             "本地地址候选": "c.kind==='url'",
+            "服务未运行提示": "开发服务器没有运行",
+            "复制启动命令": "button.dataset.copyServe",
             "现状基线": "c.baseline",
             "可操作小样": "c.interactive",
             "按轮次保存": "DATA.fingerprint",

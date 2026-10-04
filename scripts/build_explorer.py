@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = SKILL_ROOT / "assets" / "style-explorer.html"
 MARKER = "/*__OIL_UI_DATA__*/ null"
+CONNECT_CSP = "connect-src 'none'"
 PREVIEW_CSP = (
     "default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
     "font-src data:; media-src data:; script-src 'none'; "
@@ -267,7 +268,11 @@ LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 
 def local_url(value: str, identifier: str) -> str:
     """Live candidates only point at a dev server on this machine."""
-    parts = urlsplit(value)
+    try:
+        parts = urlsplit(value)
+        parts.port  # Reject malformed ports before generating CSP origins.
+    except ValueError:
+        raise ValueError(f"{identifier}: url 必须是有效的本机 http(s) 地址") from None
     if parts.scheme not in ("http", "https") or (parts.hostname or "").lower() not in LOOPBACK or parts.username or parts.password:
         raise ValueError(f"{identifier}: url 只能是本机开发服务器地址，例如 http://localhost:5173/orders")
     return value
@@ -279,6 +284,19 @@ def load_manifest(path: Path) -> tuple[dict, set[Path]]:
         raise ValueError("manifest.schemaVersion 必须为 1")
     data = {"schemaVersion": 1, "project": text_field(raw, "project"),
             "brief": text_field(raw, "brief"), "round": text_field(raw, "round", default="01")}
+    if "serve" in raw:
+        serve = raw["serve"]
+        if not isinstance(serve, dict):
+            raise ValueError("serve 必须是对象")
+        if not isinstance(serve.get("command"), str) or not serve["command"].strip():
+            raise ValueError("serve.command 必须是非空字符串")
+        if "cwd" in serve and (not isinstance(serve["cwd"], str) or not Path(serve["cwd"]).is_absolute()):
+            raise ValueError("serve.cwd 必须是绝对路径")
+        if "url" in serve:
+            if not isinstance(serve["url"], str) or not serve["url"].strip():
+                raise ValueError("serve.url 必须是非空的本机 http(s) 地址")
+            local_url(serve["url"], "serve")
+        data["serve"] = serve
     candidates = raw.get("candidates")
     if not isinstance(candidates, list) or not candidates:
         raise ValueError("candidates 至少需要一个候选")
@@ -341,9 +359,20 @@ def build(manifest: Path, output: Path, *, force: bool = False) -> dict:
     template = TEMPLATE.read_text(encoding="utf-8")
     if template.count(MARKER) != 1:
         raise ValueError("模板数据入口缺失或重复")
+    if template.count(CONNECT_CSP) != 1:
+        raise ValueError("模板连接策略入口缺失或重复")
+    origins = set()
+    for candidate in data["candidates"]:
+        if candidate["kind"] == "url":
+            parts = urlsplit(candidate["content"])
+            # Browsers reject IPv6 literals in CSP source lists; probe their loopback alias.
+            host = "localhost" if parts.hostname == "::1" else parts.hostname.lower()
+            port = f":{parts.port}" if parts.port is not None else ""
+            origins.add(f"{parts.scheme}://{host}{port}")
+    connect_csp = "connect-src " + (" ".join(sorted(origins)) if origins else "'none'")
     # A closing script tag in metadata or a nested candidate cannot escape the container.
     payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-    page = template.replace(MARKER, payload)
+    page = template.replace(CONNECT_CSP, connect_csp).replace(MARKER, payload)
     output.parent.mkdir(parents=True, exist_ok=True)
     if force:
         temp = None
@@ -358,6 +387,8 @@ def build(manifest: Path, output: Path, *, force: bool = False) -> dict:
     else:
         with output.open("x", encoding="utf-8") as handle:
             handle.write(page)
+    if origins and "serve" not in data:
+        print("提醒：本轮包含 url 候选，建议在 manifest 顶层补上 serve 启动方式，方便重新打开对比页。", file=sys.stderr)
     return {"output": str(output), "candidates": len(data["candidates"]), "fingerprint": data["fingerprint"], "bytes": output.stat().st_size}
 
 

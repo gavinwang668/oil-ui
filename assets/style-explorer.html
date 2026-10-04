@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>风格对比</title><style>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="connect-src 'none'"><meta name="viewport" content="width=device-width,initial-scale=1"><title>风格对比</title><style>
 :root{--canvas:#f4f4f4;--surface:#fff;--well:#e8e8e8;--raised:#fff;--line:#e2e2e2;--line-2:#d0d0d0;--text:#161616;--soft:#5c5c5c;--faint:#8c8c8c;--ink:#161616;--hl:#ffe28a;--bar-h:48px;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--brand:"Helvetica Neue",Helvetica,Arial,sans-serif;color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--canvas);font-synthesis:none;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;
  /* 动效：咔嗒用于控件，滑行用于画面与切换，弹出用于确认；弹簧曲线由刚度/阻尼采样 */
  --snap:cubic-bezier(.2,.9,.25,1.04);--snap-d:330ms;--glide:cubic-bezier(.2,.8,.2,1);--glide-d:440ms;--pop:cubic-bezier(.3,1.5,.5,1);--exit:cubic-bezier(.4,0,1,1)}
@@ -35,6 +35,10 @@
 .peek{position:absolute;inset:auto 0 0 0;z-index:2;padding:10px 12px;font-size:12.5px;color:#fff;background:linear-gradient(transparent,#000b);opacity:0;transform:translateY(6px);transition:opacity .18s,transform .3s var(--glide);pointer-events:none;border-radius:0 0 4px 4px}.frame:hover .peek,.hit:focus-visible~.peek{opacity:1;transform:none}
 .stage{position:relative;overflow:hidden;margin:0 auto;border-radius:3px;background:#ebebeb}.stage iframe,.stage img{position:absolute;left:0;top:0;border:0;display:block;transform-origin:top left;background:#fff;opacity:0;transition:opacity .4s ease-out}.stage.ready iframe,.stage.ready img{opacity:1}.stage iframe{pointer-events:none}.stage img{object-fit:contain;background:#ebebeb}
 .hit{position:absolute;inset:0;width:100%;height:100%;z-index:1;border-radius:4px;cursor:zoom-in}.hit:focus-visible{outline-offset:-2px}
+.service-note{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--canvas);overflow:auto;pointer-events:none}
+.service-message{width:100%;max-width:440px;min-width:0;margin:auto;font-size:14px;line-height:1.7;color:var(--soft)}.service-message h3{margin:0 0 6px;font-size:16px;font-weight:600;color:var(--text)}
+.service-command{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;margin-top:16px;pointer-events:auto}.service-command code{flex:1 1 200px;min-width:0;padding:6px 10px;border-radius:6px;background:var(--well);font-family:var(--mono);font-size:12.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}.service-command .tool{flex:none;background:var(--raised)}
+.stage.offline .static{display:none}
 .slide .static{display:none}.static{position:absolute;left:10px;bottom:10px;z-index:2;font-size:12.5px;line-height:1.4;padding:3px 8px;border-radius:4px;background:#000c;color:#ddd;pointer-events:none}
 .pick-mark{position:absolute;top:10px;right:10px;z-index:3;display:none;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;background:var(--ink);color:#fff;font-size:13px;font-weight:600;line-height:1.4;box-shadow:0 6px 16px #0000003d;pointer-events:none;transform-origin:85% 50%}.pick-mark::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--hl)}
 .is-chosen .pick-mark{display:inline-flex}.is-chosen .frame{box-shadow:0 0 0 2px var(--ink),0 30px 60px -30px #00000052}.is-chosen .cap .no{color:var(--text)}
@@ -48,7 +52,7 @@
 
 .loupe{position:fixed;top:var(--bar-h);left:0;right:0;bottom:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:minmax(0,1fr)}
 .view{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column}
-.surface{position:relative;flex:1;min-height:0;overflow:hidden}
+.surface{position:relative;flex:1;min-height:0;overflow:clip}
 .track{display:flex;height:100%;transition:transform var(--glide-d) var(--glide)}
 .slide{flex:0 0 100%;min-width:0;height:100%;overflow:auto;padding:20px 72px;display:flex;justify-content:center;align-items:center}.slide[data-zoom=actual]{display:block}
 .slide .stage{flex:none;box-shadow:0 0 0 1px #00000014,0 40px 80px -40px #00000059;transition:transform var(--glide-d) var(--glide),opacity var(--glide-d) ease-out}.slide:not(.is-current) .stage{transform:scale(.92);opacity:.4}.slide.is-current .stage iframe{pointer-events:auto}
@@ -146,6 +150,30 @@ const DATA = /*__OIL_UI_DATA__*/ null;
  function save(){if(!stored)return;try{localStorage.setItem(KEY,JSON.stringify(st));}catch{stored=false;status();}}
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;};
  const shown=()=>C.filter(c=>st.visible.includes(c.id));
+ const services=new Map(C.filter(c=>c.kind==='url').map(c=>[c.content,{ready:null,pending:false}]));
+ const startCommand=DATA.serve?(DATA.serve.cwd?`cd "${DATA.serve.cwd.replace(/[\\"$`]/g,'\\$&')}" && ${DATA.serve.command}`:DATA.serve.command):'';
+
+ function serviceNotice(){
+  const note=el('div','service-note'),message=el('div','service-message');note.hidden=true;note.setAttribute('role','status');
+  message.append(el('h3',null,'开发服务器没有运行'),el('p',null,'在对话里跟 Agent 说“打开对比页”就行。'));
+  if(startCommand){const row=el('div','service-command'),button=el('button','tool','复制命令');button.type='button';button.dataset.copyServe='';button.setAttribute('aria-label','复制启动命令');button.addEventListener('click',()=>copy(startCommand));row.append(el('code',null,startCommand),button);message.append(row);}
+  note.append(message);return note;
+ }
+ function syncService(s,c){
+  const ready=services.get(c.content).ready,m=s.querySelector('iframe');
+  s.classList.toggle('offline',ready===false);s.querySelector('.service-note').hidden=ready!==false;m.hidden=ready!==true;
+  if(ready===true){if(m.getAttribute('src')!==c.content){s.classList.remove('ready');m.src=c.content;}}
+  else{s.classList.remove('ready');if(m.hasAttribute('src'))m.removeAttribute('src');}
+ }
+ async function checkService(url){
+  const state=services.get(url);if(state.pending)return;state.pending=true;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2500);
+  const target=new URL(url);if(target.hostname==='[::1]')target.hostname='localhost';
+  try{await fetch(target.href,{mode:'no-cors',cache:'no-store',credentials:'omit',signal:controller.signal});state.ready=true;}catch{state.ready=false;}
+  finally{clearTimeout(timer);state.pending=false;}
+  $$('.stage').forEach(s=>{const c=byId[s.dataset.id];if(c.kind==='url'&&c.content===url)syncService(s,c);});
+ }
+ const checkServices=()=>services.forEach((state,url)=>checkService(url));
 
  // 动效工具：尊重“减少动态效果”，浏览器不支持时直接落到最终状态
  function animate(node,frames,opts){if(calm.matches||!node?.animate)return;try{node.animate(frames,opts);}catch{node.animate(frames,{...opts,easing:'ease-out'});}}
@@ -174,9 +202,10 @@ const DATA = /*__OIL_UI_DATA__*/ null;
   const m=document.createElement(c.kind==='image'?'img':'iframe');
   if(c.kind==='image'){m.alt=c.name;m.draggable=false;}
   else{m.title=c.name;m.setAttribute('sandbox',c.kind==='url'?'allow-scripts allow-same-origin allow-forms':c.interactive?'allow-scripts allow-forms':'');m.referrerPolicy='no-referrer';if(!interactive)m.tabIndex=-1;}
-  m.addEventListener('load',()=>{s.classList.add('ready');fit(s);});
-  if(c.kind==='image')m.src=c.content;else if(c.kind==='url')m.src=c.content;else m.srcdoc=c.content;
+  m.addEventListener('load',()=>{if(c.kind==='url'&&services.get(c.content).ready!==true)return;s.classList.add('ready');fit(s);});
+  if(c.kind==='image')m.src=c.content;else if(c.kind!=='url')m.srcdoc=c.content;
   s.append(m);
+  if(c.kind==='url'){s.append(serviceNotice());syncService(s,c);}
   if(c.kind!=='html'||c.interactive)s.append(el('span','static',c.kind==='url'?'本地运行':c.kind==='image'?'静态图':'可操作'));
   return s;
  }
@@ -298,8 +327,8 @@ const DATA = /*__OIL_UI_DATA__*/ null;
  }
  function status(){$('#notes-open').textContent=st.notes?'备注 ·':'备注';const s=$('#state');if(!stored){s.textContent='浏览器存储不可用：关闭页面后选择和备注不会保留。';s.dataset.warn='';}else{s.textContent='备注会和选择一起复制。改完备注，再点一次“已选择”重新复制。';delete s.dataset.warn;}}
  function copyText(){const c=byId[st.chosen];let t=`${DATA.round?DATA.round+'：':''}选 ${no(c)} ${c.name}`;if(st.notes.trim())t+=`\n备注：${st.notes.trim()}`;return t;}
- async function copy(){
-  const t=copyText();let ok=false;
+ async function copy(t=copyText()){
+  let ok=false;
   try{await navigator.clipboard.writeText(t);ok=true;}catch{const a=el('textarea');a.value=t;a.setAttribute('readonly','');a.style.cssText='position:fixed;opacity:0';document.body.append(a);a.select();try{ok=document.execCommand('copy');}catch{}a.remove();}
   toast(ok,t);
  }
@@ -329,5 +358,6 @@ const DATA = /*__OIL_UI_DATA__*/ null;
  $('#bar').hidden=false;
  if(st.layout==='compare'){$('#grid').classList.add('first');$('.intro').classList.add('first');setTimeout(()=>{$('#grid').classList.remove('first');$('.intro').classList.remove('first');},1400);}
  render();syncBars();
+ if(services.size){checkServices();setInterval(()=>{if(!document.hidden)checkServices();},5000);window.addEventListener('focus',checkServices);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkServices();});}
 })();
 </script></body></html>
