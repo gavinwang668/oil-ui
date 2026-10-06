@@ -89,6 +89,8 @@ Compare designs side by side as HTML files, images, or running development pages
 | Fix common first-draft issues, check AI design defaults, refine details, and simplify | | ✓ |
 | Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
 | Interactions, states, layout, and responsive behavior | | ✓ |
+| Mini-games and tactile controls: pacing the reveal, saving charges and results first, judging feel from recordings | ✓ | ✓ |
+| Mini-game scene layouts, playful-app design defaults, and game-state walkthroughs | | ✓ |
 | Polish a single component to the extreme: a visual anchor, one chosen sketch, every state, a tactile main interaction, and review rounds | | ✓ |
 | 19 card prototypes with code, spatial expansion containers, and in-card micro drawers | | ✓ |
 | SVG and shader effects: light trails, dot patterns, and flowing gradients | | ✓ |

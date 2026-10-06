@@ -272,6 +272,41 @@ new IntersectionObserver(e=>e.forEach(x=>x.isIntersecting&&x.target.classList.ad
         self.assertIn("首次进入：没有检测到动画", issues)
         self.assertIn("滚动：没有检测到", issues)
 
+    def test_steps_reject_unquoted_selectors_with_spaces(self):
+        output = self.folder / "unquoted"
+        result = subprocess.run([NODE, str(SCRIPT), str(self.page), "--out", str(output), "--steps", "click body #go"],
+                                cwd=ROOT, env=self.env, capture_output=True, text=True, timeout=90)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("加引号", result.stdout + result.stderr)
+        self.shoot(self.folder / "quoted", "--steps", 'click "body #go"')
+
+    def test_motion_skips_scroll_check_on_single_screen(self):
+        self.page.write_text('''<!doctype html><html><head><link rel="icon" href="data:,"><style>
+html,body{margin:0;height:100%;overflow:hidden}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+h1{animation:rise .5s ease-out both}</style></head><body><h1>Game</h1></body></html>''', encoding="utf-8")
+        output = self.folder / "single-screen"
+        result = self.shoot(output, "--motion")
+        probe = json.loads((output / "report.json").read_text(encoding="utf-8"))[0]
+        self.assertEqual(probe["issues"], [])
+        self.assertFalse(probe["motion"]["scroll"]["scrollable"])
+        self.assertIn("页面不滚动", result.stdout)
+
+    def test_record_entry_captures_first_appearance(self):
+        self.page.write_text('''<!doctype html><html><head><link rel="icon" href="data:,"><style>
+body{margin:0;background:#fde68a}
+@keyframes rise{from{opacity:0;transform:translateY(160px)}to{opacity:1;transform:none}}
+h1{margin:40px;height:300px;background:#1e3a8a;animation:rise .3s ease-out both}</style></head>
+<body><h1></h1></body></html>''', encoding="utf-8")
+        # 出场 0.3 秒就结束：默认录屏开录时已经播完，只有 --entry 能录到它
+        late = self.folder / "late"
+        self.shoot(late, "--record", "--hold", "300")
+        self.assertEqual((late / "motion-start.jpg").read_bytes(), (late / "motion-end.jpg").read_bytes())
+        output = self.folder / "entry"
+        self.shoot(output, "--record", "--entry", "--hold", "300")
+        self.assert_artifacts(output, ("motion-start.jpg", "motion-mid.jpg", "motion-end.jpg"))
+        self.assertNotEqual((output / "motion-start.jpg").read_bytes(), (output / "motion-end.jpg").read_bytes())
+
     def test_reports_page_problems(self):
         self.page.write_text(self.page.read_text(encoding="utf-8").replace("</body>", '''
 <div style="width:2000px">溢出</div><img src="missing.png">

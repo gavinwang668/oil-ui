@@ -20,12 +20,15 @@ const HELP = `用法：node shoot.mjs <页面地址或文件> [选项]
   --sheet               把所有状态拼成一张并排图（配合 --mask 再拼一张遮字版）
   --steps "<动作>"      截图前先执行的动作，用分号分隔：
                         click <选择器> | hover <选择器> | drag <选择器> <dx> <dy>
+                        选择器里有空格时加引号：click ".nav .item"
                         type <选择器> <文字> | key <按键> | scroll <dy> | wait <毫秒>
   --record              录下 --steps 的执行过程，输出 record.mp4 和开始、中间、结束三帧
+  --entry               配合 --record：先开始录再打开页面，录下首次进入的出场
   --hold <毫秒>         录屏时动作结束后再录多久，默认 1200
   --motion              探测动效：首次进入、--steps 动作、首屏滚动、从头滚到底里
                         有没有动画、幅度多大，没有或太小记为问题；首屏滚动
-                        1.5 屏内几层在变只作报告，供选了首屏景深的页面核对
+                        1.5 屏内几层在变只作报告，供选了首屏景深的页面核对；
+                        页面本身不能滚动时（单屏 App）跳过滚动检查
   --wait <毫秒>         页面加载后等多久再截，默认 400
 
 每张图都会检查控制台错误、横向溢出和加载失败的图片，结果写进 report.json。`;
@@ -44,7 +47,7 @@ let target = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--force") continue;
-  if (["--full", "--mask", "--sheet", "--record", "--motion"].includes(a)) flags.add(a.slice(2));
+  if (["--full", "--mask", "--sheet", "--record", "--motion", "--entry"].includes(a)) flags.add(a.slice(2));
   else if (a.startsWith("--")) {
     if (!options.includes(a)) fail(`不认识的选项 ${a}\n可用选项：${options.join(" ")}`);
     if (i + 1 >= args.length || args[i + 1].startsWith("--")) fail(`${a} 需要一个值`);
@@ -268,6 +271,8 @@ const mouse = (type, x, y, extra = {}) => cdp("Input.dispatchMouseEvent", { type
 async function runSteps(text) {
   for (const raw of (text || "").split(";").map((s) => s.trim()).filter(Boolean)) {
     const [verb, ...rest] = tokenize(raw);
+    const arity = { click: 1, hover: 1, drag: 3 }[verb];
+    if (arity && rest.length !== arity) throw new Error(`动作参数不对：${raw}。选择器里有空格时要加引号，例如 ${verb} ".nav .item"${verb === "drag" ? " 0 -80" : ""}`);
     if (verb === "wait") await sleep(Number(rest[0]) || 0);
     else if (verb === "click") { const p = await center(rest[0]); await mouse("mouseMoved", p.x, p.y); await mouse("mousePressed", p.x, p.y, { clickCount: 1 }); await mouse("mouseReleased", p.x, p.y, { clickCount: 1 }); await sleep(120); }
     else if (verb === "hover") { const p = await center(rest[0]); await mouse("mouseMoved", p.x, p.y); await sleep(200); }
@@ -318,10 +323,16 @@ async function record(url, w, h) {
     cdp("Page.screencastFrameAck", { sessionId: m.params.sessionId }).catch(() => {});
   };
   await setViewport(w, h, zoom);
-  await open(url);
+  const entry = flags.has("entry");
+  if (!entry) await open(url);
   listeners.push(onFrame);
   await cdp("Page.startScreencast", { format: "jpeg", quality: 88, everyNthFrame: 1 });
-  await sleep(500);
+  if (entry) {
+    await open(url);
+    // 丢掉页面第一次有内容之前的空白帧，开始帧就是出场的起点
+    const painted = await evaluate(`(() => { const p = performance.getEntriesByName("first-contentful-paint")[0] || performance.getEntriesByType("paint")[0]; return p ? (performance.timeOrigin + p.startTime) / 1000 : 0; })()`);
+    if (painted) { const firstPainted = frames.findIndex((f) => f.t >= painted - 0.02); if (firstPainted > 0) frames.splice(0, firstPainted); }
+  } else await sleep(500);
   await runSteps(opt.steps);
   await sleep(Number(opt.hold));
   const finished = Date.now() / 1000;
@@ -437,6 +448,7 @@ async function probeMotion(url, w, h) {
   await evaluate(`(scrollTo(0, 0), __oilMotion.setPhase("hero"), true)`);
   await sleep(150);
   const height = await evaluate(`document.documentElement.scrollHeight - innerHeight`);
+  const scrollable = height > 4;
   const heroEnd = Math.min(height, Math.round(h * 1.5));
   for (let y = 0; y <= heroEnd; y += Math.round(h / 10)) { await evaluate(`scrollTo(0, ${y}), true`); await sleep(70); }
   await sleep(400);
@@ -458,14 +470,15 @@ async function probeMotion(url, w, h) {
       continue;
     }
     if (k === "scroll") {
-      if (!p.elements) issues.push("滚动：没有检测到随滚动出现的变化；落地页、品牌页、发布页和展览页需要一段滚动叙事");
+      p.scrollable = scrollable;
+      if (!p.elements && scrollable) issues.push("滚动：没有检测到随滚动出现的变化；落地页、品牌页、发布页和展览页需要一段滚动叙事");
       continue;
     }
     if (!p.elements) issues.push(`${names[k]}：没有检测到动画`);
     else if (p.loops === p.elements) issues.push(`${names[k]}：只有持续循环的动画，没有一次性的${k === "load" ? "出场" : "反馈"}`);
     else if (weak(p)) issues.push(`${names[k]}：动画幅度太小，看不出来（最大位移 ${p.maxMove}px，尺寸变化 ${(p.maxSize * 100).toFixed(1)}%，透明度变化 ${p.maxOpacity}）`);
   }
-  const brief = (k, p) => k === "hero" ? `首屏滚动 ${p.layers} 层在变，最大缩放 ${(p.maxSize * 100).toFixed(1)}%，最大位移 ${p.maxMove}px`
+  const brief = (k, p) => k === "scroll" && !p.scrollable ? "页面不滚动，跳过滚动检查" : k === "hero" ? `首屏滚动 ${p.layers} 层在变，最大缩放 ${(p.maxSize * 100).toFixed(1)}%，最大位移 ${p.maxMove}px`
     : `${names[k]} ${p.elements} 个元素在动，最大位移 ${p.maxMove}px，透明度变化 ${p.maxOpacity}`;
   return { phases, issues: [...problems, ...issues], message: "动效探测：" + Object.entries(phases).map(([k, p]) => brief(k, p)).join("；") };
 }
