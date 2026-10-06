@@ -23,6 +23,9 @@ const HELP = `用法：node shoot.mjs <页面地址或文件> [选项]
                         type <选择器> <文字> | key <按键> | scroll <dy> | wait <毫秒>
   --record              录下 --steps 的执行过程，输出 record.mp4 和开始、中间、结束三帧
   --hold <毫秒>         录屏时动作结束后再录多久，默认 1200
+  --motion              探测动效：首次进入、--steps 动作、首屏滚动、从头滚到底里
+                        有没有动画、幅度多大，没有或太小记为问题；首屏滚动
+                        1.5 屏内几层在变只作报告，供选了首屏景深的页面核对
   --wait <毫秒>         页面加载后等多久再截，默认 400
 
 每张图都会检查控制台错误、横向溢出和加载失败的图片，结果写进 report.json。`;
@@ -41,7 +44,7 @@ let target = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--force") continue;
-  if (["--full", "--mask", "--sheet", "--record"].includes(a)) flags.add(a.slice(2));
+  if (["--full", "--mask", "--sheet", "--record", "--motion"].includes(a)) flags.add(a.slice(2));
   else if (a.startsWith("--")) {
     if (!options.includes(a)) fail(`不认识的选项 ${a}\n可用选项：${options.join(" ")}`);
     if (i + 1 >= args.length || args[i + 1].startsWith("--")) fail(`${a} 需要一个值`);
@@ -341,6 +344,132 @@ async function record(url, w, h) {
   return { issues, message: `录屏：record.mp4（${(finished - frames[0].t).toFixed(1)} 秒）和 motion-start/mid/end.jpg` };
 }
 
+
+// ---------- 动效探测 ----------
+// Runs before page scripts: records which elements animate in each phase and how far they move.
+const MOTION_PROBE = `(() => {
+  if (window.__oilMotion) return;
+  const tracked = new Map();
+  let phase = "load";
+  const seen = new Set();
+  function touch(el, source) {
+    if (!(el instanceof Element) || el.id === "oil-mask") return;
+    let t = tracked.get(el);
+    if (!t) { if (tracked.size >= 400) return; t = { phases: {} }; tracked.set(el, t); }
+    let p = t.phases[phase];
+    if (!p) p = t.phases[phase] = { first: null, last: null, frames: 0, move: 0, size: 0, opacity: 0, sources: new Set() };
+    p.sources.add(source);
+    if (source.startsWith("js:")) t.lastJs = performance.now();
+  }
+  addEventListener("animationstart", (e) => touch(e.target, "css:" + e.animationName), true);
+  addEventListener("transitionrun", (e) => touch(e.target, "transition:" + e.propertyName), true);
+  new MutationObserver((list) => { for (const m of list) touch(m.target, "js:" + m.attributeName); })
+    .observe(document, { subtree: true, attributes: true, attributeFilter: ["style", "transform", "viewBox", "d", "x", "y", "cx", "cy", "r", "points", "opacity", "stroke-dashoffset"] });
+  // 首屏阶段按视口坐标量：被固定住的舞台不算在动，舞台里的层次变化才算。
+  function read(el) {
+    const r = el.getBoundingClientRect();
+    const page = phase === "hero" ? 0 : 1;
+    return { x: r.left + scrollX * page, y: r.top + scrollY * page, w: r.width, h: r.height, o: +getComputedStyle(el).opacity };
+  }
+  function sample() {
+    if (document.getAnimations) for (const a of document.getAnimations()) {
+      if (a.playState !== "running" || !a.effect || !a.effect.target) continue;
+      const tl = a.timeline && a.timeline.constructor && a.timeline.constructor.name;
+      const scrollLinked = tl === "ScrollTimeline" || tl === "ViewTimeline";
+      if (scrollLinked) touch(a.effect.target, "scroll-timeline:" + (a.animationName || "animation"));
+      else if (!seen.has(a)) { seen.add(a); if (!a.animationName && !a.transitionProperty) touch(a.effect.target, "waapi"); }
+    }
+    for (const [el, t] of tracked) {
+      const p = t.phases[phase];
+      if (!p || !el.isConnected) continue;
+      const now = read(el);
+      if (!p.first) { p.first = p.last = now; continue; }
+      const l = p.last;
+      if (Math.abs(now.x - l.x) + Math.abs(now.y - l.y) + Math.abs(now.w - l.w) + Math.abs(now.h - l.h) > 0.1 || Math.abs(now.o - l.o) > 0.005) p.frames++;
+      p.last = now;
+      p.move = Math.max(p.move, Math.hypot(now.x - p.first.x, now.y - p.first.y));
+      p.size = Math.max(p.size, Math.abs(now.w - p.first.w) / Math.max(1, p.first.w), Math.abs(now.h - p.first.h) / Math.max(1, p.first.h));
+      p.opacity = Math.max(p.opacity, Math.abs(now.o - p.first.o));
+    }
+    requestAnimationFrame(sample);
+  }
+  requestAnimationFrame(sample);
+  window.__oilMotion = {
+    setPhase(next) { phase = next; },
+    summary(name) {
+      const items = [];
+      for (const [el, t] of tracked) {
+        const p = t.phases[name];
+        if (!p) continue;
+        const label = el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(/\\s+/).slice(0, 2).join(".") : "");
+        const infinite = el.getAnimations ? el.getAnimations().some((a) => a.effect && a.effect.getTiming && a.effect.getTiming().iterations === Infinity) : false;
+        const loop = infinite || (t.lastJs && performance.now() - t.lastJs < 250);
+        if (p.frames < 3) continue; // one-off jumps are state writes, not motion
+        items.push({ el: label, move: Math.round(p.move), size: +p.size.toFixed(3), opacity: +p.opacity.toFixed(2), loop: !!loop, sources: [...p.sources].slice(0, 3) });
+      }
+      const visible = items.filter((i) => ((name !== "scroll" && name !== "hero") || !i.loop) && (i.move >= 1 || i.size >= 0.005 || i.opacity >= 0.05 || i.sources.some((s) => s.startsWith("scroll-timeline"))));
+      visible.sort((a, b) => (b.move + b.size * 400 + b.opacity * 40) - (a.move + a.size * 400 + a.opacity * 40));
+      return {
+        elements: visible.length,
+        loops: visible.filter((i) => i.loop).length,
+        maxMove: Math.max(0, ...visible.map((i) => i.move)),
+        maxSize: Math.max(0, ...visible.map((i) => i.size)),
+        maxOpacity: Math.max(0, ...visible.map((i) => i.opacity)),
+        top: visible.slice(0, 8),
+      };
+    },
+  };
+})()`;
+
+async function probeMotion(url, w, h) {
+  const { identifier } = await cdp("Page.addScriptToEvaluateOnNewDocument", { source: MOTION_PROBE });
+  problems = [];
+  await setViewport(w, h, 1);
+  await open(url);
+  await sleep(1200);
+  const phases = { load: await evaluate(`__oilMotion.summary("load")`) };
+  if (opt.steps) {
+    await evaluate(`__oilMotion.setPhase("steps"), true`);
+    await runSteps(opt.steps);
+    await sleep(900);
+    phases.steps = await evaluate(`__oilMotion.summary("steps")`);
+  }
+  await evaluate(`(scrollTo(0, 0), __oilMotion.setPhase("hero"), true)`);
+  await sleep(150);
+  const height = await evaluate(`document.documentElement.scrollHeight - innerHeight`);
+  const heroEnd = Math.min(height, Math.round(h * 1.5));
+  for (let y = 0; y <= heroEnd; y += Math.round(h / 10)) { await evaluate(`scrollTo(0, ${y}), true`); await sleep(70); }
+  await sleep(400);
+  phases.hero = await evaluate(`__oilMotion.summary("hero")`);
+  await evaluate(`(__oilMotion.setPhase("scroll"), true)`);
+  for (let y = heroEnd; y < height; y += Math.round(h / 4)) { await evaluate(`scrollTo(0, ${y}), true`); await sleep(90); }
+  await evaluate(`scrollTo(0, ${height}), true`);
+  await sleep(600);
+  phases.scroll = await evaluate(`__oilMotion.summary("scroll")`);
+  await cdp("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+
+  const issues = [];
+  const names = { load: "首次进入", steps: "--steps 动作", hero: "首屏滚动", scroll: "从头滚到底" };
+  const weak = (p) => p.maxMove < 4 && p.maxSize < 0.02 && p.maxOpacity < 0.3;
+  for (const [k, p] of Object.entries(phases)) {
+    // 首屏景深是可选手法：只报告层数和幅度，供选了它的页面核对，不记为问题。
+    if (k === "hero") {
+      p.layers = p.top.filter((i) => i.size >= 0.05 || i.move >= h * 0.05).length;
+      continue;
+    }
+    if (k === "scroll") {
+      if (!p.elements) issues.push("滚动：没有检测到随滚动出现的变化；落地页、品牌页、发布页和展览页需要一段滚动叙事");
+      continue;
+    }
+    if (!p.elements) issues.push(`${names[k]}：没有检测到动画`);
+    else if (p.loops === p.elements) issues.push(`${names[k]}：只有持续循环的动画，没有一次性的${k === "load" ? "出场" : "反馈"}`);
+    else if (weak(p)) issues.push(`${names[k]}：动画幅度太小，看不出来（最大位移 ${p.maxMove}px，尺寸变化 ${(p.maxSize * 100).toFixed(1)}%，透明度变化 ${p.maxOpacity}）`);
+  }
+  const brief = (k, p) => k === "hero" ? `首屏滚动 ${p.layers} 层在变，最大缩放 ${(p.maxSize * 100).toFixed(1)}%，最大位移 ${p.maxMove}px`
+    : `${names[k]} ${p.elements} 个元素在动，最大位移 ${p.maxMove}px，透明度变化 ${p.maxOpacity}`;
+  return { phases, issues: [...problems, ...issues], message: "动效探测：" + Object.entries(phases).map(([k, p]) => brief(k, p)).join("；") };
+}
+
 // ---------- 主流程 ----------
 const base = await resolveTarget(target);
 const withState = (s) => {
@@ -352,6 +481,11 @@ const withState = (s) => {
 const report = [];
 const lines = [];
 try {
+  if (flags.has("motion")) {
+    const result = await probeMotion(withState(states[0]), sizes[0].w, sizes[0].h);
+    lines.push(result.message + (result.issues.length ? "  ⚠ " + result.issues.join("；") : ""));
+    report.push({ file: "motion-probe", state: states[0], size: `${sizes[0].w}x${sizes[0].h}`, zoom: 1, motion: result.phases, issues: result.issues });
+  }
   if (flags.has("record")) {
     const result = await record(withState(states[0]), sizes[0].w, sizes[0].h);
     lines.push(result.message);
@@ -391,7 +525,7 @@ try {
 console.log(`输出目录：${out}`);
 for (const l of lines) console.log(`- ${l}`);
 const total = report.reduce((n, r) => n + r.issues.length, 0);
-if (report.length) console.log(total ? `发现 ${total} 个问题，详见 report.json` : "检查通过：没有控制台错误、横向溢出或加载失败的图片");
+if (report.length) console.log(total ? `发现 ${total} 个问题，详见 report.json` : `检查通过：没有控制台错误、横向溢出或加载失败的图片${flags.has("motion") ? "，三段动效都检测到了" : ""}`);
 ws.close();
 await cleanup();
 process.exit(process.exitCode || 0);

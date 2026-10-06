@@ -242,6 +242,36 @@ document.querySelector('#go').onclick = () => show(document.body.dataset.state =
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertGreaterEqual(float(json.loads(result.stdout)["format"]["duration"]), 2.0)
 
+    def test_motion_probe(self):
+        self.page.write_text('''<!doctype html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,"><style>
+body{margin:0}.hero{height:1800px}.stage{position:sticky;top:0;height:800px;overflow:hidden}
+#figure,#word{position:absolute;left:300px;width:400px;height:300px;background:#888}#word{top:400px;background:#444}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+h1{animation:rise .5s ease-out both}#go{transition:transform .3s}#go.on{transform:translateX(40px)}
+.reveal{height:600px;opacity:0;transition:opacity .3s}.reveal.in{opacity:1}
+</style></head><body><section class="hero"><div class="stage"><div id="figure"></div><div id="word"></div></div></section>
+<h1>Hi</h1><button id="go" onclick="this.classList.add('on')">Go</button>
+<div style="height:1200px"></div><div class="reveal">Later</div>
+<script>addEventListener('scroll',()=>{const p=Math.min(scrollY/1000,1);figure.style.transform=`scale(${1-p*.2})`;word.style.transform=`scale(${1+p*.25})`});
+new IntersectionObserver(e=>e.forEach(x=>x.isIntersecting&&x.target.classList.add('in'))).observe(document.querySelector('.reveal'))</script>
+</body></html>''', encoding="utf-8")
+        output = self.folder / "motion"
+        self.shoot(output, "--motion", "--size", "1280x800", "--steps", "click #go")
+        probe = json.loads((output / "report.json").read_text(encoding="utf-8"))[0]
+        self.assertEqual(probe["issues"], [])
+        self.assertTrue(all(probe["motion"][k]["elements"] for k in ("load", "steps", "hero", "scroll")))
+        self.assertGreaterEqual(probe["motion"]["hero"]["layers"], 2)
+
+        self.page.write_text('''<!doctype html><html><head><link rel="icon" href="data:,"></head>
+<body><h1>Still</h1><div style="height:1600px"></div></body></html>''', encoding="utf-8")
+        output = self.folder / "still"
+        self.shoot(output, "--motion", "--size", "1280x800")
+        issues = "\n".join(json.loads((output / "report.json").read_text(encoding="utf-8"))[0]["issues"])
+        self.assertIn("首次进入：没有检测到动画", issues)
+        self.assertIn("滚动：没有检测到", issues)
+
     def test_reports_page_problems(self):
         self.page.write_text(self.page.read_text(encoding="utf-8").replace("</body>", '''
 <div style="width:2000px">溢出</div><img src="missing.png">
