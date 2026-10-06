@@ -8,20 +8,20 @@
   <a href="https://ui.oiloil.org"><img src="./assets/readme/showcase.webp" width="100%" alt="Gallery highlights: an English learning app, a music year in review, hardware and component library websites, a project management tool, a ride-hailing app, a voice assistant, a checkout flow, and a film camera"></a>
 </p>
 
-See more designs at [ui.oiloil.org](https://ui.oiloil.org).
+Oil UI is an interface design skill for AI agents. It explores a few genuinely different design directions side by side, lets you choose one, then refines it against real screenshots. It works for websites, apps, dashboards, and components. See more designs at [ui.oiloil.org](https://ui.oiloil.org).
 
-## Method
+## How it designs
 
-1. **Identify the category and study its best examples.** Name the product category, find two or three peers with distinctive styles, and examine their choices and reasoning. Decide what to keep and what to change.
-2. **Set the tone first.** Use the subject, audience, and brand voice to set five scales: energy, polish, density, visual weight, and seriousness. Turn words like “premium” or “clean” into visible choices: type, spacing, and how much of the page uses color.
-3. **Start with something concrete.** Give each direction a specific starting point: a material in a setting, a scene, a character, or the visual language of another field. Draw from the product itself rather than adjectives like “minimal” or “bold.”
-4. **Decide what the opening screen is for.** For browsing, shopping, or getting work done, lead with the content itself. For pages meant to persuade, choose the opening layout, wireframe it, then write the copy. Each direction needs a different layout; use a left/right split at most once per round.
-5. **Check that the directions differ.** Any two directions may share at most one of four things: layout, typography, color, and key imagery. Place the previews side by side and squint at the opening screens. If their light and dark shapes look too similar, choose a different layout.
-6. **Create a memorable moment.** Focus on one or two details: the response to a tap, a successful payment, AI at work, or a 404 page. Keep the rest quiet.
-7. **You decide what looks right.** Compare previews on one page, choose a direction, and say exactly what you like and dislike.
-8. **Judge the actual screens.** Open the page at desktop and mobile sizes and check screenshots. An independent reviewer who has not seen the work in progress can review it. Finish by simplifying: give each page one focal point and remove unnecessary copy, repeated lines, and extra containers.
+1. **Understand what the product is.** Before drawing anything, it names the product category, finds two or three peers with the most distinctive styles, and looks at what they do and why. Then it decides what to keep and what to change.
+2. **Turn “premium” and “clean” into real decisions.** Everyone uses these words, but they don't tell you what to put on the screen. It first sets the tone from the subject, audience, and brand voice, such as lively or calm, polished or raw, dense or airy. Then it turns that tone into visible choices: which typefaces, how much white space, and how much of the page uses color.
+3. **Start each direction from something concrete.** That could be a material in its setting, a scene, a character, or the visual language of another field. Ideas come from the product itself, not from adjectives like “minimal” or “bold.”
+4. **Decide who the first screen is for.** On pages where people browse, shop, or get work done, the first screen should be the content itself. Only pages meant to persuade need a designed opening layout, settled before the copy is written.
+5. **Make the directions truly different.** Of layout, typography, color, and key imagery, any two directions may share at most one. Once the previews exist, it puts them side by side and squints at the light and dark shapes of each first screen. If two look alike, it changes the layout instead of just swapping colors.
+6. **Leave one moment people remember.** Instead of pushing every part of the page, it makes one or two details exceptional, such as the response to a tap, a successful payment, AI at work, or a 404 page. Everything else stays quiet.
+7. **You decide what looks right.** The previews go on one comparison page. You pick one and say what you like and dislike, and it tightens the design around your feedback before going further.
+8. **Trust the real screen.** When a page is done, it opens it at desktop and mobile sizes and checks screenshots. You can also bring in a reviewer who hasn't seen the work in progress. Last comes a round of subtraction: one focal point per page, and no copy, lines, or boxes that don't help you understand it.
 
-Interactions, states, layout, existing project redesigns, and effects such as light trails and dot patterns are covered in [Oil UI Pro](https://ui.oiloil.org/en/pro/).
+For more usable interfaces, existing project redesigns, or effects such as light trails and dot patterns, see [Oil UI Pro](https://ui.oiloil.org/en/pro/). The differences are listed [below](#open-source-and-pro).
 
 ## Installation
 
@@ -31,23 +31,13 @@ Send this to an agent that can install skills:
 Install this skill for me: https://github.com/oil-oil/oil-ui
 ```
 
-Or install it from your terminal:
+Or run this in your terminal:
 
 ```bash
 npx skills add oil-oil/oil-ui
 ```
 
-The design workflow is ready to use after installation, with no extra configuration or other skills. Installing with the command requires Node.js 18 or later. If you already have Oil UI Pro, you don't need Oil UI (open source); installing both makes them compete for the same requests.
-
-Using this skill triggers a version check, at most once every 10 minutes. If the server takes longer than 2 seconds, the check is skipped so it never slows down your task. Failed checks retry later when you use the skill again. The check only reads the public version list on ui.oiloil.org and does not upload project content. Offline checks cannot discover new versions, so they produce no reminder.
-
-Version checks need Python 3. By default they only report new versions, without downloading an updater or replacing the skill. To update, explicitly ask your agent or run the displayed `python "<installation path>/scripts/check_update.py" --update` command; the program uses its actual Python interpreter when generating the command. Explicit updates also need Node.js 18 or later and use an Oil CLI pinned to a specific commit, which verifies the download's SHA-256 before installation. The updater only receives required paths, locale settings and Oil CLI authorization; unrelated service keys, `NODE_OPTIONS` and npm configuration environment variables are excluded. Remote release notes do not enter agent notices. Network errors stay silent and retry later. Set `OIL_NO_AUTO_UPDATE=1` to enforce reminders only, or `OIL_NO_UPDATE_CHECK=1` to disable checks entirely.
-
-Python 3 can run as `python3` or `python`, or as `py -3` on Windows. If Python 3 is missing, the agent reminds you once and continues the design task.
-
-## Data and permissions
-
-The design workflow needs no additional API key. Version checks use the public version endpoint; optional capabilities such as image generation use services already authorized in your host. The screenshot tool opens the page you specify in an independent temporary browser. Local previews listen on `127.0.0.1` and restrict file reads to the preview directory. Tested on macOS; Windows and Linux have not been tested on real machines.
+It's ready to use right after installation, with nothing to configure. When a new version is out, your agent mentions it at the end of a reply; ask it to update whenever you like. If you already have Oil UI Pro, you don't need the open-source version. Installing both makes them compete for the same requests.
 
 ## Usage
 
@@ -59,7 +49,7 @@ Tell your agent what you need, for example:
 - “Review this homepage and explain what to change and how. Leave the files untouched.”
 - “Recreate this page from the screenshot and add a mobile layout too.”
 
-Share any brand assets, screenshots, or existing project you have. It can start without references and only asks questions when the deliverable is unclear.
+Share any brand assets, screenshots, or existing project you have. It can start without references and only asks you questions when the deliverable is unclear.
 
 ## Built-in style comparison page
 
@@ -67,35 +57,32 @@ Share any brand assets, screenshots, or existing project you have. It can start 
   <img src="./assets/readme/proof-mona-lisa.webp" width="100%" alt="Style comparison page: three directions for the same Mona Lisa exhibition page, titled Thirty Centimeters, Extra! 1911, and Sfumato">
 </p>
 
-Compare designs side by side as HTML files, images, or running development pages. Put the current version first as a baseline. Switch between desktop and mobile sizes, open previews at actual size, and browse with arrow keys. Click “Select” on your choice, then paste the copied sentence into your agent to continue.
+When you want to compare designs, it puts them side by side on one page. They can be HTML files, images, or running development pages, and the current version can go first as a baseline. You can switch between desktop and mobile sizes, open each one at actual size, and browse with the arrow keys. Click “Select” on the one you like, paste the copied sentence into your agent, and it carries on from there.
 
-## Open-source and full versions
+## Open source and Pro
 
 <p align="center">
   <img src="./assets/readme/proof-van-gogh.webp" width="100%" alt="Full version style comparison page: three directions for a Van Gogh exhibition page, titled To Theo, Brushstrokes, and East Window">
 </p>
 
+The open-source version takes a new page from a blank start to a good-looking design. Pro builds on that: it makes interfaces easier to use, improves existing projects, and raises the quality bar with stricter review and polishing.
+
 | | Oil UI (open source) | Oil UI Pro |
 | --- | :---: | :---: |
-| Set the tone, explore distinct directions, define layouts first, and check their differences | ✓ | ✓ |
-| Style comparison page | ✓ | ✓ |
-| Visual hierarchy, typography, color, and spacing | ✓ | ✓ |
-| Memorable moments and scroll storytelling (parallax and continuous shots) | ✓ | ✓ |
-| Imagery, assets, and motion | ✓ | ✓ |
-| Screenshot recreation, icon library selection, and sample data | ✓ | ✓ |
-| Review polished interfaces against the project’s design guidelines | ✓ | ✓ |
-| Independent review | Scored, with remaining gaps listed | Aim for 9/10, with up to three rounds of review and revision |
-| Check for overlapping directions and have the reviewer complete real tasks | | ✓ |
-| Fix common first-draft issues, check AI design defaults, refine details, and simplify | | ✓ |
-| Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
-| Interactions, states, layout, and responsive behavior | | ✓ |
-| Mini-games and tactile controls: pacing the reveal, saving charges and results first, judging feel from recordings | ✓ | ✓ |
-| Mini-game scene layouts, playful-app design defaults, and game-state walkthroughs | | ✓ |
-| Polish a single component to the extreme: a visual anchor, one chosen sketch, every state, a tactile main interaction, and review rounds | | ✓ |
-| 19 card prototypes with code, spatial expansion containers, and in-card micro drawers | | ✓ |
-| SVG and shader effects: light trails, dot patterns, and flowing gradients | | ✓ |
-| In existing projects, first tell apart a UI refresh, a flow fix, and a new feature | ✓ | ✓ |
-| Existing project methods: check whether the current design system deserves to be the standard, offer options by how far they depart from it, walk the real flow to find root causes, and propose options that solve the task in genuinely different ways | | ✓ |
+| Design direction: product category, tone, distinct directions, comparison page | ✓ | ✓ |
+| Visuals: hierarchy, typography, color, spacing, imagery, and motion | ✓ | ✓ |
+| Memorable moments and scroll storytelling (parallax, continuous shots) | ✓ | ✓ |
+| Screenshot recreation | ✓ | ✓ |
+| Pacing and feel for mini-games | ✓ | ✓ |
+| Independent review | Scored, with issues listed | Repeated review and revision aiming for 9/10; checks whether directions overlap; completes real tasks on the page |
+| Polish: checks for AI design defaults, a detail checklist, and how to simplify | | ✓ |
+| Usability: interactions and states, forms, dialogs and popovers, desktop and mobile layouts | | ✓ |
+| Dashboards and tools: workspace layouts chosen for the product, with one style throughout | | ✓ |
+| Existing projects: separate approaches for a UI refresh, a flow fix, and a new feature | Tells you which one you need | ✓ |
+| Polish a single component to the extreme | | ✓ |
+| 19 card prototypes with code and spatial expansion containers | | ✓ |
+| Effects such as light trails, dot patterns, and flowing gradients | | ✓ |
+| Scene layouts, visuals, and state checks for mini-games | | ✓ |
 
 Oil UI Pro costs $9.99: a one-time purchase with lifetime updates. Purchase it at [ui.oiloil.org/pro](https://ui.oiloil.org/en/pro/).
 
