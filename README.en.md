@@ -84,7 +84,7 @@ Compare designs side by side as HTML files, images, or running development pages
 | Imagery, assets, and motion | ✓ | ✓ |
 | Screenshot recreation, icon library selection, and sample data | ✓ | ✓ |
 | Review polished interfaces against the project’s design guidelines | ✓ | ✓ |
-| Independent review | One round per stage | Aim for 9/10, with up to three rounds of review and revision |
+| Independent review | Scored, with remaining gaps listed | Aim for 9/10, with up to three rounds of review and revision |
 | Check for overlapping directions and have the reviewer complete real tasks | | ✓ |
 | Fix common first-draft issues, check AI design defaults, refine details, and simplify | | ✓ |
 | Dashboard and tool layouts, with a consistent style throughout the page | | ✓ |
