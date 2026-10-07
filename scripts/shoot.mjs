@@ -133,7 +133,7 @@ function findChrome() {
 const chromePath = findChrome();
 const profile = mkdtempSync(join(tmpdir(), "oil-shoot-"));
 const chrome = spawn(chromePath, [
-  "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run",
+  "--headless=new", "--enable-unsafe-swiftshader", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run",
   "--no-default-browser-check", "--hide-scrollbars", "--mute-audio", "--disable-extensions", "about:blank",
 ], { stdio: ["ignore", "ignore", "pipe"] });
 
@@ -197,6 +197,20 @@ const cdp = (method, params) => send(method, params, sessionId);
 await cdp("Page.enable");
 await cdp("Runtime.enable");
 await cdp("Log.enable");
+// 记下创建失败或丢失的 WebGL 上下文：截图照样成功，画布却是空的。
+// 先试 webgl2、失败后退回 webgl 的页面不算失败，只看最后有没有拿到。
+await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+  const gl = window.__oilWebgl = { failed: [], ok: [], lost: 0 };
+  const get = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+    const ctx = get.call(this, type, ...rest);
+    if (/^(webgl2?|experimental-webgl)$/.test(type)) {
+      if (!ctx) gl.failed.push(this);
+      else if (!gl.ok.includes(this)) { gl.ok.push(this); this.addEventListener("webglcontextlost", () => gl.lost++); }
+    }
+    return ctx;
+  };
+})()` });
 
 let problems = [];
 listeners.push((m) => {
@@ -236,6 +250,12 @@ async function check() {
     const doc = document.documentElement;
     if (doc.scrollWidth > innerWidth + 1) out.push("横向溢出：页面宽 " + doc.scrollWidth + "px，视口 " + innerWidth + "px");
     for (const img of document.images) if (img.complete && img.naturalWidth === 0) out.push("图片没加载出来：" + (img.getAttribute("src") || "").slice(0, 120));
+    const gl = window.__oilWebgl;
+    if (gl) {
+      const blank = new Set(gl.failed.filter((c) => !gl.ok.includes(c))).size;
+      if (blank) out.push("WebGL：" + blank + " 个画布没能创建绘图上下文，截图里是空的");
+      if (gl.lost) out.push("WebGL：绘图上下文丢失 " + gl.lost + " 次");
+    }
     return out;
   })()`);
   return [...problems, ...found];

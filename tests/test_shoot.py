@@ -322,5 +322,19 @@ h1{margin:40px;height:300px;background:#1e3a8a;animation:rise .3s ease-out both}
                     self.assertIn(expected, issues)
 
 
+    def test_reports_blank_webgl_canvas(self):
+        # 同一块画布已经拿了 2d 上下文，再要 webgl 必然失败，用它模拟“截图成功但画布是空的”
+        self.page.write_text(self.page.read_text(encoding="utf-8").replace("</body>", '''
+<canvas id="bad"></canvas><canvas id="good"></canvas>
+<script>
+const bad = document.querySelector('#bad'); bad.getContext('2d'); bad.getContext('webgl');
+const good = document.querySelector('#good'); good.getContext('webgl2') || good.getContext('webgl');
+</script></body>'''), encoding="utf-8")
+        output = self.folder / "webgl"
+        self.shoot(output)
+        issues = "\n".join(json.loads((output / "report.json").read_text(encoding="utf-8"))[0]["issues"])
+        self.assertIn("WebGL：1 个画布没能创建绘图上下文", issues)
+
+
 if __name__ == "__main__":
     unittest.main()

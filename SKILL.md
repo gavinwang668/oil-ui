@@ -7,7 +7,7 @@ allowed-tools:
   - Bash(python *check_update.py*)
   - Bash(py -3 *check_update.py*)
 metadata:
-  version: "0.16.4"
+  version: "0.16.5"
   compatibility: "核心为宿主中立的文本流程，不依赖其他 Skill 或指定模型。可选风格对比页生成器需要 Python 3.10+ 标准库，产物仅需现代浏览器；本机地址候选需要对应的本地开发服务器在运行。实际视觉验收需要看图能力；交互验收需要可操作环境；独立评审需要隔离上下文且能看图的执行者。"
 ---
 
@@ -62,10 +62,10 @@ metadata:
 | 要解决的问题 | 参考 |
 | --- | --- |
 | 视觉层级、字体、色彩、空间、图标、风格统一或减法精修 | [视觉语言](references/visual-language.md) |
-| 素材选择、视频与 3D | [素材](references/media.md) |
+| 素材选择、实时 3D 与视频 | [素材](references/media.md) |
 | 生成配图：让图承担意思、写提示词、和页面接成一体 | [配图](references/imagery.md) |
 | 三处基本动效与呼应、动效手感、界面过渡、首屏动画、时长与检查 | [动效](references/motion.md) |
-| 小游戏、抽奖、计时养成和强手感操控 | [游玩](references/play.md) |
+| 小游戏、抽奖、计时养成和强手感操控 | [游玩](references/play.md)（含素材与渲染，按其中链接读配图和实时 3D） |
 | 落地页、品牌页、发布页、展览页的滚动动效：区块出场、滑动驱动的叙事（首屏景深、一镜到底等）与动效库 | [滚动叙事](references/scroll-narrative.md) |
 
 展示功能特性或业务证据时先判断品类与内容：生活方式、人文阅读等页面优先大图与杂志排版，不强塞科技卡片。

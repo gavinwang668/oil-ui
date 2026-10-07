@@ -73,7 +73,7 @@ The open-source version takes a new page from a blank start to a good-looking de
 | Visuals: hierarchy, typography, color, spacing, imagery, and motion | ✓ | ✓ |
 | Memorable moments and scroll storytelling (parallax, continuous shots) | ✓ | ✓ |
 | Screenshot recreation | ✓ | ✓ |
-| Pacing and feel for mini-games | ✓ | ✓ |
+| Pacing, feel, generated assets, and real-time 3D for mini-games | ✓ | ✓ |
 | Independent review | Scored, with issues listed | Repeated review and revision aiming for 9/10; checks whether directions overlap; completes real tasks on the page |
 | Polish: checks for AI design defaults, a detail checklist, and how to simplify | | ✓ |
 | Usability: interactions and states, forms, dialogs and popovers, desktop and mobile layouts | | ✓ |
