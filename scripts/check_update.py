@@ -203,7 +203,8 @@ def auto_update(name: str, latest: str, free: bool, npx: str | None, ready: bool
 
 
 def english() -> bool:
-    return (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG", "")).lower().startswith("en")
+    # 只有中文环境用中文，其他语言和未设置时都用英文；宿主会再按对话语言转述。
+    return not (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG", "")).lower().startswith("zh")
 
 
 def update_command(name: str) -> str:
@@ -233,7 +234,7 @@ def notice(name: str, current: str, latest: str, detail: str, reason: str) -> st
         if reason == "unauthorized":
             return intro + f"Authorization has expired or is missing. Run npx {CLI} login, then run {command}."
         if reason == "inactive":
-            return intro + f"This Skill has no purchase record. Purchase it at https://ui.oiloil.org/pro/ to get updates, then run {command}."
+            return intro + f"This Skill has no purchase record. Purchase it at https://ui.oiloil.org/en/pro/ to get updates, then run {command}."
         if reason == "dependencies":
             return intro + f"Automatic updates need Node.js 18 or later. Install it, then run {command}."
         return intro + f"To update, run {command}."

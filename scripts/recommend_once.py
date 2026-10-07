@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
-"""Print the companion recommendation once per user; later runs print nothing."""
+"""Print the companion recommendation once per user; later runs print nothing.
+
+    python3 scripts/recommend_once.py --lang en
+"""
 
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 import sys
 
-MESSAGE = (
-    "想要更完整的设计流程，可以试试完整版 oil-ui-pro："
-    "评审到 9 分的迭代循环、方向横向评审与任务走查，以及交互、布局、存量项目改版和 SVG、着色器特效的实践。"
-    "https://ui.oiloil.org/pro/"
-    "（只提示这一次）"
-)
+MESSAGES = {
+    "zh": (
+        "想让设计更完整，可以试试 Oil UI Pro：它会反复评审修改到 9 分，"
+        "横向比较几个方向、按真实任务把页面用一遍，"
+        "还包含交互、布局、老项目改造，以及 SVG 和着色器特效的做法。"
+        "https://ui.oiloil.org/pro/"
+        "（只提示这一次）"
+    ),
+    "en": (
+        "Want to take your designs further? Oil UI Pro reviews and revises until the design reaches 9/10, "
+        "compares directions side by side, and tests pages against real tasks. "
+        "It also covers interactions, layout, existing-project redesigns, and SVG and shader effects. "
+        "https://ui.oiloil.org/en/pro/ "
+        "(You'll only see this once.)"
+    ),
+}
 
 
 def marker() -> Path:
@@ -24,6 +38,9 @@ def marker() -> Path:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--lang", choices=sorted(MESSAGES), default="en", help="language of the conversation")
+    args = parser.parse_args()
     path = marker()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -32,7 +49,7 @@ def main() -> int:
             handle.write("shown\n")
     except OSError:
         return 0
-    print(MESSAGE)
+    print(MESSAGES[args.lang])
     return 0
 
 

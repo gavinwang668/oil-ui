@@ -284,6 +284,10 @@ def load_manifest(path: Path) -> tuple[dict, set[Path]]:
         raise ValueError("manifest.schemaVersion 必须为 1")
     data = {"schemaVersion": 1, "project": text_field(raw, "project"),
             "brief": text_field(raw, "brief"), "round": text_field(raw, "round", default="01")}
+    if "lang" in raw:
+        if raw["lang"] not in ("zh", "en"):
+            raise ValueError('manifest.lang 只能是 "zh" 或 "en"')
+        data["lang"] = raw["lang"]
     if "serve" in raw:
         serve = raw["serve"]
         if not isinstance(serve, dict):

@@ -15,8 +15,8 @@ done
 # mkdir 的独占创建同时防止连续加载与并发加载重复提醒。
 missing_python_notice() {
     case ${LC_ALL:-${LC_MESSAGES:-$LANG}} in
-        en*|EN*) printf '%s\n' 'Version checks need Python 3. This update check did not run.' ;;
-        *) printf '%s\n' '版本检查需要 Python 3，本次没有检查更新。' ;;
+        zh*|ZH*) printf '%s\n' '版本检查需要 Python 3，本次没有检查更新。' ;;
+        *) printf '%s\n' 'Version checks need Python 3. This update check did not run.' ;;
     esac
 }
 mkdir -p "$state_base/oil" 2>/dev/null

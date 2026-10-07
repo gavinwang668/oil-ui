@@ -214,7 +214,7 @@ class CheckUpdateTest(unittest.TestCase):
                         self.assertRegex(out, r"npx github:oil-oil/oil-cli#[0-9a-f]{40} login")
                         self.assertIn("Authorization has expired" if language.startswith("en") else "授权已失效", out)
                     else:
-                        self.assertIn("https://ui.oiloil.org/pro/", out)
+                        self.assertIn("https://ui.oiloil.org/en/pro/" if language.startswith("en") else "https://ui.oiloil.org/pro/", out)
                         self.assertIn("no purchase record" if language.startswith("en") else "没有对应的购买记录", out)
                     _, state = self.install_state()
                     self.assertEqual(state["auto_failed_reason"], error)
@@ -338,6 +338,12 @@ class CheckUpdateTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(str(self.skill), self.npx_calls()[0])
         self.assertIn('version: "99.0.0"', (self.skill / "SKILL.md").read_text(encoding="utf-8"))
+
+    def test_non_chinese_locales_get_english(self):
+        for language in ("ja_JP.UTF-8", "hi_IN.UTF-8", ""):
+            with self.subTest(language=language):
+                shutil.rmtree(self.tmp / "state", ignore_errors=True)
+                self.assertIn("is available", self.run_check(LANG=language, LC_ALL="", LC_MESSAGES="", OIL_NO_AUTO_UPDATE="1"))
 
     def test_english_success_and_manual_notice(self):
         out = self.run_check(LANG="en_US.UTF-8", OIL_NO_AUTO_UPDATE="1")
