@@ -558,7 +558,6 @@ finally{clearTimeout(deadline);chrome.kill();}
         copy = self.folder / "relocated"
         shutil.copytree(ROOT / "scripts", copy / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copytree(ROOT / "assets", copy / "assets")
-        shutil.copy2(ROOT / "SKILL.md", copy / "SKILL.md")
         run = subprocess.run([sys.executable, str(copy / "scripts" / "build_explorer.py"), str(self.manifest), "--output", str(self.output)], cwd=self.folder, capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertTrue(self.output.is_file())
