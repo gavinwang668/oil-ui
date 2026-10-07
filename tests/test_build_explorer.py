@@ -108,8 +108,8 @@ class ExplorerBuildTests(unittest.TestCase):
         results = iter(json.loads(run.stdout))
         for _, _, expected in cases:
             number = "现状" if expected == "zh" else "Current"
-            texts = (["01：选 01 Direction A\n备注：More space", "选 01 Direction A", f"02：选 {number} Direction A"]
-                     if expected == "zh" else ["Round 01: Go with 01 Direction A\nNotes: More space", "Go with 01 Direction A", f"Round 02: Go with {number} Direction A"])
+            texts = (["01：选 01 Direction A", "选 01 Direction A", f"02：选 {number} Direction A"]
+                     if expected == "zh" else ["Round 01: Go with 01 Direction A", "Go with 01 Direction A", f"Round 02: Go with {number} Direction A"])
             for text in texts:
                 self.assertEqual(next(results), {"lang": expected, "text": text})
 
@@ -132,15 +132,13 @@ class ExplorerBuildTests(unittest.TestCase):
   let n;while(n=walker.nextNode())if(!n.parentElement.closest('script,style'))snapshots.push(n.textContent.trim());
   document.querySelectorAll('[aria-label],[title],[placeholder]').forEach(n=>['aria-label','title','placeholder'].forEach(a=>{if(n.hasAttribute(a))snapshots.push(n.getAttribute(a));}));
  };
+ const initial={loupe:!document.querySelector('#loupe').hidden,current:document.querySelector('.slide.is-current').dataset.id,mobile:document.querySelector('[data-viewport=mobile]').getAttribute('aria-pressed'),cards:document.querySelectorAll('.card').length,descriptions:[...document.querySelectorAll('.lede')].every(n=>getComputedStyle(n).display!=='none')};
  capture();document.querySelector('[data-layout=loupe]').click();capture();
  document.querySelector('#zoom').click();capture();document.querySelector('#zoom').click();
- const notes=document.querySelector('#notes');notes.value='  More space  ';notes.dispatchEvent(new Event('input'));
  document.querySelector('#info-body [data-pick]').click();await Promise.resolve();capture();
- document.querySelectorAll('#filter-list input').forEach(n=>{n.checked=false;n.dispatchEvent(new Event('change'));});capture();
- document.querySelector('#show-all').click();
  navigator.clipboard.writeText=async()=>{throw Error('denied')};document.execCommand=()=>false;
  document.querySelector('#info-body [data-pick]').click();await Promise.resolve();await Promise.resolve();capture();
- const result=document.createElement('pre');result.id='i18n-result';result.textContent=JSON.stringify({lang:document.documentElement.lang,title:document.title,snapshots,copied});document.body.append(result);
+ const result=document.createElement('pre');result.id='i18n-result';result.textContent=JSON.stringify({lang:document.documentElement.lang,title:document.title,snapshots,copied,initial,saved:JSON.parse(localStorage.getItem(`oil-ui:${DATA.fingerprint}`))});document.body.append(result);
 })();
 </script>"""
         table = json.loads(builder.TEMPLATE.read_text(encoding="utf-8").split("const I18N = ", 1)[1].split(";\n", 1)[0])
@@ -149,7 +147,13 @@ class ExplorerBuildTests(unittest.TestCase):
                 self.data["lang"] = lang
                 self.save()
                 builder.build(self.manifest, self.output, force=True)
-                page = self.output.read_text(encoding="utf-8").replace("</body></html>", probe + "</body></html>")
+                page = self.output.read_text(encoding="utf-8")
+                key = "oil-ui:" + self.payload(page)["fingerprint"]
+                legacy = {"layout": "loupe", "viewport": "mobile", "current": "b", "chosen": "a",
+                          "visible": [], "notesOn": False, "notes": "Old private note"}
+                seed = "<script>localStorage.setItem(" + json.dumps(key) + "," + json.dumps(json.dumps(legacy)) + ");</script>"
+                page = page.replace("<script>\nconst DATA", seed + "<script>\nconst DATA", 1)
+                page = page.replace("</body></html>", probe + "</body></html>")
                 self.output.write_text(page, encoding="utf-8")
                 # Use the debugging pipe rather than virtual time: previews can
                 # keep animation frames alive, so --dump-dom may never finish.
@@ -197,17 +201,21 @@ finally{clearTimeout(deadline);chrome.kill();}
                 self.assertEqual(run.returncode, 0, run.stderr)
                 observed = json.loads(run.stdout)
                 self.assertEqual(observed["lang"], table[lang]["htmlLang"])
-                self.assertEqual(observed["title"], table[lang]["projectTitle"].replace("{project}", "Demo"))
+                self.assertEqual(observed["title"], table[lang]["projectTitle"].replace("{project}", "Demo").replace("{edition}", " Pro" if builder.SKILL_ROOT.name == "oil-ui-pro" else ""))
+                self.assertEqual(observed["initial"], {"loupe": True, "current": "b", "mobile": "true", "cards": 2, "descriptions": True})
+                self.assertEqual(set(observed["saved"]), {"layout", "viewport", "current", "chosen"})
+                self.assertEqual(observed["saved"]["chosen"], "b")
                 strings = observed["snapshots"]
-                for key in ("compare", "loupe", "designNotes", "layoutLabel", "viewportLabel", "currentChoice", "notesPlaceholder",
-                            "baseline", "fonts", "traits", "actual", "fit", "none", "showAll", "empty", "notesHelp", "copied", "copyFailed"):
+                self.assertNotIn("Old private note", strings)
+                for key in ("compare", "loupe", "layoutLabel", "viewportLabel",
+                            "baseline", "fonts", "traits", "actual", "fit", "empty", "copied", "copyFailed"):
                     self.assertIn(table[lang][key], strings, key)
                     other = table["en" if lang == "zh" else "zh"][key]
                     self.assertNotIn(other, strings, key)
                 if lang == "en":
                     self.assertNotRegex("\n".join(strings), r"[\u3400-\u9fff]")
-                self.assertEqual(observed["copied"], ["01：选 现状 Direction A\n备注：More space"] if lang == "zh"
-                                 else ["Round 01: Go with Current Direction A\nNotes: More space"])
+                self.assertEqual(observed["copied"], ["01：选 现状 Direction A"] if lang == "zh"
+                                 else ["Round 01: Go with Current Direction A"])
 
     def test_portable_single_file_and_html_payload(self):
         result = builder.build(self.manifest, self.output)
@@ -507,11 +515,8 @@ finally{clearTimeout(deadline);chrome.kill();}
         hooks = {
             "并排与单张": 'data-layout="loupe"',
             "手机视口": 'data-viewport="mobile"',
-            "筛选": 'id="filter-list"',
-            "设计说明开关": 'id="notes-toggle"',
             "实际尺寸": '实际尺寸 100%',
             "选择": "st.chosen",
-            "备注": 'id="notes"',
             "选择即复制": 'navigator.clipboard',
             "本地地址候选": "c.kind==='url'",
             "服务未运行提示": "开发服务器没有运行",
@@ -519,17 +524,41 @@ finally{clearTimeout(deadline);chrome.kill();}
             "现状基线": "c.baseline",
             "可操作小样": "c.interactive",
             "按轮次保存": "DATA.fingerprint",
-            "存储不可用提示": "浏览器存储不可用",
             "展示北极星": "c.concept",
             "展示色板": "c.palette",
         }
         missing = [name for name, hook in hooks.items() if hook not in page]
         self.assertEqual(missing, [], "模板缺少对比页承诺的功能，见 .github/EXPLORER.md")
+        for removed in ('class="bar-r"', 'id="round"', 'id="filter-list"', 'id="notes-toggle"',
+                        'id="notes"', 'id="show-all"', "liveSource", "imageSource", "interactiveSource", "htmlSource"):
+            self.assertNotIn(removed, page)
+
+    def test_brand_assets_and_edition_survive_relocation(self):
+        copy = self.folder / "relocated"
+        shutil.copytree(ROOT / "scripts", copy / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(ROOT / "assets", copy / "assets")
+        logo = "data:image/png;base64," + base64.b64encode((ROOT / "assets/logo.png").read_bytes()).decode("ascii")
+        font = "data:font/ttf;base64," + base64.b64encode((ROOT / "assets/fonts/instrument-serif/InstrumentSerif-Regular.ttf").read_bytes()).decode("ascii")
+        for name, edition in (("oil-ui-pro", "pro"), ("oil-ui", "open")):
+            with self.subTest(edition=edition):
+                (copy / "SKILL.md").write_text("---\nname: " + name + "\n---\n", encoding="utf-8")
+                output = self.folder / (edition + ".html")
+                run = subprocess.run([sys.executable, str(copy / "scripts/build_explorer.py"), str(self.manifest),
+                                      "--output", str(output)], cwd=self.folder, capture_output=True, text=True)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                page = output.read_text(encoding="utf-8")
+                self.assertEqual(self.payload(page)["edition"], edition)
+                self.assertIn(logo, page)
+                self.assertIn(font, page)
+                self.assertNotIn('href="logo.png"', page)
+                self.assertNotIn('src="logo.png"', page)
+                self.assertNotIn('url("fonts/', page)
 
     def test_copied_skill_works_from_another_directory(self):
         copy = self.folder / "relocated"
         shutil.copytree(ROOT / "scripts", copy / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copytree(ROOT / "assets", copy / "assets")
+        shutil.copy2(ROOT / "SKILL.md", copy / "SKILL.md")
         run = subprocess.run([sys.executable, str(copy / "scripts" / "build_explorer.py"), str(self.manifest), "--output", str(self.output)], cwd=self.folder, capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertTrue(self.output.is_file())
