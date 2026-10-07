@@ -79,7 +79,14 @@ const MIME = {
   ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
   ".webp": "image/webp", ".gif": "image/gif", ".avif": "image/avif", ".woff2": "font/woff2", ".woff": "font/woff",
   ".ttf": "font/ttf", ".otf": "font/otf", ".mp4": "video/mp4", ".webm": "video/webm",
+  ".txt": "text/plain; charset=utf-8", ".wasm": "application/wasm", ".glb": "model/gltf-binary",
+  ".gltf": "model/gltf+json", ".bin": "application/octet-stream", ".geojson": "application/geo+json",
+  ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".pdf": "application/pdf",
+  ".csv": "text/csv; charset=utf-8", ".ico": "image/x-icon", ".mov": "video/quicktime", ".m4a": "audio/mp4",
+  ".hdr": "application/octet-stream", ".exr": "image/x-exr", ".ktx2": "image/ktx2",
 };
+const privatePath = (path) => path.split(/[\\/]/).some((part) => part.startsWith(".")
+  || /^(?:credentials?|secrets?|id_(?:rsa|dsa|ecdsa|ed25519))(?:[._-]|$)/i.test(part));
 let server = null;
 async function resolveTarget(t) {
   if (/^https?:\/\//.test(t)) return t;
@@ -89,15 +96,23 @@ async function resolveTarget(t) {
   const page = statSync(file).isDirectory() ? "index.html" : basename(file);
   server = createServer((req, res) => {
     try {
-      const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
-      const local = realpathSync(resolve(join(root, path)));
-      const fromRoot = relative(root, local);
-      if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot) || !statSync(local).isFile()) {
+      const origin = `http://127.0.0.1:${server.address().port}`;
+      const url = new URL(req.url, origin);
+      if (req.headers.host !== new URL(origin).host || url.origin !== origin || !["GET", "HEAD"].includes(req.method)) {
         res.writeHead(404).end();
         return;
       }
-      res.writeHead(200, { "Content-Type": MIME[extname(local).toLowerCase()] || "application/octet-stream" });
-      res.end(readFileSync(local));
+      const path = decodeURIComponent(url.pathname);
+      if (privatePath(path)) { res.writeHead(404).end(); return; }
+      const local = realpathSync(resolve(join(root, path)));
+      const fromRoot = relative(root, local);
+      const type = MIME[extname(local).toLowerCase()];
+      if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot) || privatePath(fromRoot) || !type || !statSync(local).isFile()) {
+        res.writeHead(404).end();
+        return;
+      }
+      res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
+      res.end(req.method === "HEAD" ? undefined : readFileSync(local));
     } catch {
       res.writeHead(404).end();
     }

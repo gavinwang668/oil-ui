@@ -168,7 +168,17 @@ document.querySelector('#go').onclick = () => show(document.body.dataset.state =
         (self.folder / 'leak.txt').symlink_to(outside / 'secret.txt')
         (self.folder / 'nested').mkdir()
         (self.folder / 'nested/okay.txt').write_text('allowed-resource', encoding='utf-8')
-        blocked = ['/..%2f' + outside.name + '%2fsecret.txt', '/leak.txt', '/%E0%A4%A']
+        (self.folder / '.env.production.local').write_text('synthetic-secret', encoding='utf-8')
+        (self.folder / '.git').mkdir()
+        (self.folder / '.git/config').write_text('synthetic-git-config', encoding='utf-8')
+        (self.folder / 'credentials.json').write_text('{"token":"synthetic"}', encoding='utf-8')
+        (self.folder / 'server.pem').write_text('synthetic-private-key', encoding='utf-8')
+        (self.folder / 'env.txt').symlink_to(self.folder / '.env.production.local')
+        (self.folder / 'nested/hidden').symlink_to(self.folder / '.git', target_is_directory=True)
+        (self.folder / 'nested/module.mjs').write_text('export const value = "module-works";', encoding='utf-8')
+        blocked = ['/..%2f' + outside.name + '%2fsecret.txt', '/leak.txt', '/%E0%A4%A',
+                   '/.env.production.local', '/%2eenv.production.local', '/.git/config',
+                   '/credentials.json', '/server.pem', '/env.txt', '/nested/hidden/config']
         probe = '''<script>(async () => {
           for (const path of PATHS) {
             const response = await fetch(path);
@@ -176,6 +186,8 @@ document.querySelector('#go').onclick = () => show(document.body.dataset.state =
           }
           const allowed = await fetch('/nested/okay.txt');
           if (await allowed.text() !== 'allowed-resource') console.error('LEGIT_RESOURCE_BLOCKED');
+          const module = await import('/nested/module.mjs');
+          if (module.value !== 'module-works') console.error('LEGIT_RESOURCE_BLOCKED');
           console.error('AUDIT_FINISHED');
         })().catch(() => console.error('AUDIT_FAILED'));</script>'''.replace('PATHS', json.dumps(blocked))
         self.page.write_text(self.page.read_text().replace('</body>', probe + '</body>'), encoding='utf-8')
