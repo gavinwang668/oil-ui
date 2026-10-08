@@ -41,6 +41,14 @@ WebGL 页面在没有显卡的机器上会改用软件渲染。画布没能创�
 
 截图前先自己看一眼结果：默认状态是不是已经加载完，遮字版有没有把图形也一起盖掉。证据有错先重截，再交给评审。
 
+## 风格卡片
+
+```text
+python3 <skill>/scripts/build_style_cards.py <配置.json> --out <输出目录> [--force]
+```
+
+配置照 `assets/style-cards/example.json` 写，4–6 张卡片。输出目录里是每张卡片的 HTML、`manifest.json` 和 `style-explorer.html`；已有对比页时加 `--force` 覆盖。什么时候用见 [设计方向](design-direction.md) 的“风格卡片”。
+
 ## 写可操作的小样
 
 小样要能用地址参数直接打开每个状态，例如 `?state=done`，截图工具和评审都靠它。一个组件或一个页面只写一个文件，不要每个状态复制一份。
