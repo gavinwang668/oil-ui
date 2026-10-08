@@ -153,6 +153,33 @@ document.querySelector('#go').onclick = () => show(document.body.dataset.state =
         self.assertNotEqual((output / "a.png").read_bytes(), (output / "a-masked.png").read_bytes())
         self.assertEqual(list(self.profile_root.glob("oil-shoot-*")), [], "Temporary browser profiles leaked")
 
+    def test_mark_draws_numbered_boxes_without_touching_plain_shot(self):
+        output = self.folder / "marked"
+        result = self.shoot(output, "--mark", "#go; h1")
+        self.assert_artifacts(output, ("page.png", "page-marked.png"))
+        self.assertIn("page-marked.png", result.stdout)
+        self.assertNotEqual((output / "page.png").read_bytes(), (output / "page-marked.png").read_bytes())
+        plain = self.folder / "plain"
+        self.shoot(plain)
+        self.assertEqual((output / "page.png").read_bytes(), (plain / "page.png").read_bytes(),
+                         "Marks must not leak into the plain screenshot")
+
+    def test_mark_accepts_explicit_numbers(self):
+        numbered, by_order, reversed_order = self.folder / "numbered", self.folder / "by-order", self.folder / "reversed"
+        self.shoot(numbered, "--mark", "2=#go; 1=h1")
+        self.shoot(by_order, "--mark", "h1; #go")
+        self.shoot(reversed_order, "--mark", "#go; h1")
+        self.assertEqual((numbered / "page-marked.png").read_bytes(), (by_order / "page-marked.png").read_bytes())
+        self.assertNotEqual((numbered / "page-marked.png").read_bytes(), (reversed_order / "page-marked.png").read_bytes(),
+                            "Explicit numbers must decide the labels, not the order")
+
+    def test_mark_reports_missing_elements(self):
+        output = self.folder / "missing"
+        result = subprocess.run([NODE, str(SCRIPT), str(self.page), "--out", str(output), "--mark", "#go; .nope"],
+                                cwd=ROOT, env=self.env, capture_output=True, text=True, timeout=90)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(".nope", result.stderr)
+
     def test_force_overwrites_existing_output(self):
         output = self.folder / "shots"
         output.mkdir()

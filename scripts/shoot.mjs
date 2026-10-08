@@ -18,6 +18,9 @@ const HELP = `用法：node shoot.mjs <页面地址或文件> [选项]
   --full                截整页，默认只截视口
   --mask                另截一份遮掉全部文字的版本
   --sheet               把所有状态拼成一张并排图（配合 --mask 再拼一张遮字版）
+  --mark "1=<选择器>;..." 另截一份标注版：给每组元素画框，标上写明的编号；
+                        不写编号时按顺序标 1、2、3。一组选择器匹配到的元素都框上，
+                        编号标在第一个上
   --steps "<动作>"      截图前先执行的动作，用分号分隔：
                         click <选择器> | hover <选择器> | drag <选择器> <dx> <dy>
                         选择器里有空格时加引号：click ".nav .item"
@@ -292,6 +295,47 @@ const MASK_CSS = `*,*::before,*::after{text-shadow:none!important;-webkit-text-f
 ::placeholder{color:transparent!important}svg text,svg tspan{fill:transparent!important;stroke:transparent!important}`;
 const mask = () => evaluate(`(() => { const s = document.createElement("style"); s.id = "oil-mask"; s.textContent = ${JSON.stringify(MASK_CSS)}; document.head.append(s); return true; })()`);
 
+// 标注版：框和编号画在页面最上层，按文档坐标定位，整页截图时也对得上。
+const marks = (opt.mark ? opt.mark.split(";").map((s) => s.trim()).filter(Boolean) : []).map((s, i) => {
+  const m = s.match(/^(\d+)\s*=\s*(.+)$/);
+  return m ? { label: m[1], selector: m[2].trim() } : { label: String(i + 1), selector: s };
+});
+async function mark() {
+  const result = await evaluate(`((selectors) => {
+    const layer = document.createElement("div");
+    layer.id = "oil-mark";
+    layer.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;z-index:2147483647;pointer-events:none";
+    const color = "#e8175d";
+    const missing = [];
+    selectors.forEach(({ label, selector }) => {
+      let found;
+      try { found = [...document.querySelectorAll(selector)]; } catch { missing.push(selector + "（选择器写错了）"); return; }
+      const boxes = found.map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+      if (!boxes.length) { missing.push(selector + (found.length ? "（元素不可见）" : "")); return; }
+      boxes.forEach((r, j) => {
+        const box = document.createElement("div");
+        box.style.cssText = "position:absolute;box-sizing:border-box;border:2px solid " + color + ";border-radius:3px;" +
+          "left:" + (r.left + scrollX - 4) + "px;top:" + (r.top + scrollY - 4) + "px;width:" + (r.width + 8) + "px;height:" + (r.height + 8) + "px";
+        if (j === 0) {
+          // 小元素的编号放到框外，免得盖住元素；左边放不下就放右边。
+          const small = r.width < 48 || r.height < 28;
+          const pos = !small ? "left:-12px;top:-12px" : r.left + scrollX - 34 >= 0 ? "left:-30px;top:" + (r.height / 2 - 7) + "px" : "right:-30px;top:" + (r.height / 2 - 7) + "px";
+          const tag = document.createElement("span");
+          tag.textContent = label;
+          tag.style.cssText = "position:absolute;" + pos + ";min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;" +
+            "background:" + color + ";color:#fff;font:600 13px/22px -apple-system,'PingFang SC',sans-serif;text-align:center;box-shadow:0 0 0 2px #fff";
+          box.append(tag);
+        }
+        layer.append(box);
+      });
+    });
+    document.body.append(layer);
+    return missing;
+  })(${JSON.stringify(marks)})`);
+  if (result.length) throw new Error(`--mark 找不到元素：${result.join("；")}`);
+}
+const unmark = () => evaluate(`(document.getElementById("oil-mark")?.remove(), true)`);
+
 // ---------- 动作 ----------
 function tokenize(text) {
   return [...text.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
@@ -551,12 +595,17 @@ try {
         const issues = await check();
         report.push({ file: basename(file), state: s, size: `${w}x${h}`, zoom, issues });
         shots.push({ path: file, label: s || "page" });
+        lines.push(`${basename(file)}${issues.length ? "  ⚠ " + issues.join("；") : ""}`);
+        if (marks.length) {
+          await mark();
+          lines.push(basename(await screenshot(join(out, `${name}-marked.png`), flags.has("full"))));
+          await unmark();
+        }
         if (flags.has("mask")) {
           await mask();
           await sleep(60);
           masked.push({ path: await screenshot(join(out, `${name}-masked.png`), flags.has("full")), label: s || "page" });
         }
-        lines.push(`${basename(file)}${issues.length ? "  ⚠ " + issues.join("；") : ""}`);
       }
       if (flags.has("sheet") && shots.length > 1) {
         const suffix = sizes.length > 1 ? `-${w}x${h}` : "";
